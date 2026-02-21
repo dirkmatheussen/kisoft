@@ -1,0 +1,24 @@
+server:
+  port: 8084
+  servlet:
+    context-path: /kisoft
+
+spring:
+  application:
+    name: knapp-kisoft-mock
+
+  # OAuth2 / Microsoft Entra ID configuratie (reference)
+  # Token wordt niet gevalideerd - elke Bearer token wordt geaccepteerd
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID:your-tenant-id}/v2.0
+          # audience: ${AZURE_CLIENT_ID}  # optioneel
+
+# Mock mode: als true, accepteert de server ook requests zonder Bearer token (voor lokaal testen)
+knapp:
+  mock:
+    bypass-auth: false  # Zet op true voor ontwikkeling zonder Entra ID
+  api:
+    base-path: /api/v1

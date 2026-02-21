@@ -1,0 +1,11 @@
+# Development profile - lokale ontwikkeling zonder Bearer token
+knapp:
+  mock:
+    bypass-auth: true
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/v2.0
