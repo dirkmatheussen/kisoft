@@ -44,7 +44,7 @@ Authorization: Bearer <token>
 
 ## Swagger UI
 
-Available at: **http://localhost:8084/kisoft/swagger-ui.html**
+Available at: **https://wispelberg.eu/kisoft/swagger-ui.html**
 
 ## Configuration
 
