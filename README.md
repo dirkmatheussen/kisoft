@@ -44,7 +44,12 @@ Authorization: Bearer <token>
 
 ## Swagger UI
 
-Available at: **https://wispelberg.eu/kisoft/swagger-ui.html**
+Interactive API docs (OpenAPI 3) with all endpoints and **outgoing webhooks**:
+
+- **Local**: `http://localhost:8084/kisoft/swagger-ui.html`
+- **API spec (JSON)**: `http://localhost:8084/kisoft/v3/api-docs`
+
+Tags: **MasterData-Article** (pack unit), **Goods-In** (inbound delivery, storage order). The **Webhooks** section documents the payloads the mock POSTs to your callback URL when `knapp.mock.reply-callback-url` is set (`InboundDeliveryReply`, `StorageOrderReply`).
 
 ## Configuration
 
@@ -52,3 +57,9 @@ Available at: **https://wispelberg.eu/kisoft/swagger-ui.html**
 - **OAuth2/Entra ID**: `AZURE_TENANT_ID` in application.yml (configuration present, token is not validated)
 - **Bearer token**: required on `/kisoft/oneapi/**` – any Bearer token is accepted
 - **Bypass auth**: `knapp.mock.bypass-auth=true` (for local testing only)
+- **Max records**: `knapp.mock.max-records` – max pack units and storage orders (default 1000)
+
+Example with custom max records:
+```bash
+java -jar knapp-kisoft-mock-1.0.2.jar --knapp.mock.max-records=500
+```

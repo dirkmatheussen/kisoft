@@ -3,6 +3,17 @@ server:
   servlet:
     context-path: /kisoft
 
+# SpringDoc / Swagger UI (API docs and webhooks)
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+
 spring:
   application:
     name: knapp-kisoft-mock
@@ -17,8 +28,13 @@ spring:
           # audience: ${AZURE_CLIENT_ID}  # optioneel
 
 # Mock mode: als true, accepteert de server ook requests zonder Bearer token (voor lokaal testen)
+# max-records: max aantal pack units en storage orders (default 1000)
 knapp:
   mock:
     bypass-auth: false  # Zet op true voor ontwikkeling zonder Entra ID
+    max-records: 2000   # Override via: java -jar app.jar --knapp.mock.max-records=500
+    reply-callback-url: http://localhost:8080  # When set, mock POSTs InboundDeliveryReply/StorageOrderReply to this base URL
+    webhook-ibm-client-id: your-client-id      # Sent as X-IBM-Client-Id on webhook POSTs (IBM APIC)
+    webhook-ibm-client-secret: your-secret     # Sent as X-IBM-Client-Secret on webhook POSTs (IBM APIC)
   api:
     base-path: /api/v1

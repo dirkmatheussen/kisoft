@@ -1,0 +1,5 @@
+# Test profile: no auth, low limits for fast tests
+knapp:
+  mock:
+    bypass-auth: true
+    max-records: 100
