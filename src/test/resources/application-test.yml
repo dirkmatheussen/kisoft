@@ -2,4 +2,15 @@
 knapp:
   mock:
     bypass-auth: true
+    ui-auth-enabled: false
     max-records: 100
+    # Blank base URL => ReplyCallbackService no-ops, so tests never call an external host.
+    reply-callback-url: ""
+
+spring:
+  datasource:
+    # Isolated in-memory DB per test run (do not use the persistent file DB).
+    url: jdbc:h2:mem:kisoftmock-test;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:

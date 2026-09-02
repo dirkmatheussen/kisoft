@@ -1,0 +1,314 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-init
+      author: cursor
+      changes:
+        - createTable:
+            tableName: masterdata_session_delta
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: domain
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: client_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: key_value
+                  type: varchar(256)
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: masterdata_session_delta
+            columnNames: domain, client_number, key_value
+            constraintName: uq_delta_domain_client_key
+
+        - createTable:
+            tableName: pack_unit
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: client_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: article_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: pack_size
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payload_json
+                  type: clob
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: pack_unit
+            columnNames: client_number, article_number, pack_size
+            constraintName: uq_pack_unit_key
+
+        - createTable:
+            tableName: inbound_delivery
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: client_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: inbound_delivery_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: processing_status
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payload_json
+                  type: clob
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: inbound_delivery
+            columnNames: client_number, inbound_delivery_number
+            constraintName: uq_inbound_delivery_key
+
+  - changeSet:
+      id: 002-asrs-ib02
+      author: cursor
+      changes:
+        - createTable:
+            tableName: asrs_stock
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: client_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: article_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: pack_size
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: quantity
+                  type: int
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: asrs_stock
+            columnNames: client_number, article_number, pack_size
+            constraintName: uq_asrs_stock_key
+
+        - createTable:
+            tableName: inbound_delivery_progress
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: client_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: inbound_delivery_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: line_reference
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: article_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: pack_size
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expected_quantity
+                  type: int
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: received_quantity
+                  type: int
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: inbound_delivery_progress
+            columnNames: client_number, inbound_delivery_number, line_reference
+            constraintName: uq_inbound_delivery_progress_key
+
+        - createTable:
+            tableName: tote_compartment
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: client_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: load_unit_code
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: compartment
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: article_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: pack_size
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: quantity
+                  type: int
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: tote_compartment
+            columnNames: client_number, load_unit_code, compartment
+            constraintName: uq_tote_compartment_key
+
+  - changeSet:
+      id: 003-one-api-subset
+      author: cursor
+      changes:
+        - createTable:
+            tableName: goods_out_order
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: client_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: order_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sheet_number
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: processing_status
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payload_json
+                  type: clob
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: goods_out_order
+            columnNames: client_number, order_number, sheet_number
+            constraintName: uq_goods_out_order_key
+
+        - createTable:
+            tableName: inventory_request
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: client_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: request_number
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: processing_status
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payload_json
+                  type: clob
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: inventory_request
+            columnNames: client_number, request_number
+            constraintName: uq_inventory_request_key
+

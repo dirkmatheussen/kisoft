@@ -1,0 +1,29 @@
+[Unit]
+Description=KNAPP KiSoft One Mock Server
+Documentation=https://wispelberg.eu/kisoft/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=knapp-mock
+Group=knapp-mock
+WorkingDirectory=/opt/knapp-kisoft-mock
+
+# Required: MOCK_UI_PASSWORD (and optional JVM / Spring overrides)
+EnvironmentFile=-/etc/knapp-kisoft-mock/env
+
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/knapp-kisoft-mock/knapp-kisoft-mock.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=knapp-kisoft-mock
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

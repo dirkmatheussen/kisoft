@@ -1,5 +1,6 @@
 package com.knapp.kisoft.mock.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
@@ -8,5 +9,5 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CapacityInformation(
         String loadCarrier,
-        Integer maxStoredQuantity
+        @JsonAlias("maxStoredQuantity") Integer maximumStoredQuantity
 ) {}

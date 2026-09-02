@@ -13,7 +13,7 @@ import java.util.List;
 public record InboundDeliveryLine(
         @NotBlank String lineReference,
         @NotBlank String articleNumber,
-        @NotBlank String packSize,
+        @NotNull Integer packSize,
         @NotNull Integer expectedQuantity,
         String loadUnitCode,
         String loadCarrier,
@@ -21,6 +21,7 @@ public record InboundDeliveryLine(
         String lotNumber,
         String dateMark,
         String serialNumber,
+        /** Aligns with {@code inventoryRequestLine.reservationCode} / goods-out (e.g. Country of Origin). */
         String reservationCode,
         List<String> stockLockReasons,
         String noteOnProcessing,

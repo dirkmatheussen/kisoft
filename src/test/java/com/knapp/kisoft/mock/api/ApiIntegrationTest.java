@@ -1,6 +1,7 @@
 package com.knapp.kisoft.mock.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.knapp.kisoft.mock.service.AsrsStockService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -21,8 +22,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * API integration tests for all KiSoft mock endpoints (PackUnit, InboundDelivery, StorageOrder).
- * Uses test profile with bypass-auth so no Bearer token is required. Uses MockMvc for full HTTP method support (including PATCH).
+ * API integration tests for the in-scope KiSoft mock endpoints (HIS Appendix): MasterData-Article,
+ * Goods-In, Goods-Out, Inventory, Stock Reports and the outgoing webhook doc endpoints.
+ * Uses the test profile (bypass-auth, no callback URL) and MockMvc for full HTTP method support.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -35,6 +37,9 @@ class ApiIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private AsrsStockService asrsStock;
 
     static class TestResultLogger implements TestWatcher {
         @Override
@@ -70,7 +75,7 @@ class ApiIntegrationTest {
                         .content(json(Map.of("clientNumber", "TEST", "transmissionTag", "SET"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OK"))
-                .andExpect(jsonPath("$.transmissionTag").value("SET"));
+                .andExpect(jsonPath("$.message").exists());
     }
 
     @Test
@@ -80,7 +85,7 @@ class ApiIntegrationTest {
                 "clientNumber", "TEST",
                 "articleNumber", "ART-001",
                 "articleName", "Test Article");
-        Map<String, Object> packUnit = Map.of("article", article, "packSize", "EU");
+        Map<String, Object> packUnit = TestFixtures.packUnit(article);
         mockMvc.perform(put(API + "/packUnit").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(List.of(packUnit))))
@@ -90,9 +95,11 @@ class ApiIntegrationTest {
 
     @Test
     @Order(3)
-    void packUnit_get_returns200() throws Exception {
+    void packUnit_get_returnsODataCollection() throws Exception {
         mockMvc.perform(get(API + "/packUnit").contextPath(CTX))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['@odata.context']").exists())
+                .andExpect(jsonPath("$.value").isArray());
     }
 
     @Test
@@ -102,7 +109,7 @@ class ApiIntegrationTest {
                 "clientNumber", "TEST",
                 "articleNumber", "ART-DUP",
                 "articleName", "Dup Article");
-        Map<String, Object> packUnit = Map.of("article", article, "packSize", "EU");
+        Map<String, Object> packUnit = TestFixtures.packUnit(article);
         mockMvc.perform(put(API + "/packUnit").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(List.of(packUnit, packUnit))))
@@ -117,28 +124,23 @@ class ApiIntegrationTest {
                         .content(json(List.of(Map.of(
                                 "clientNumber", "TEST",
                                 "articleNumber", "ART-001",
-                                "packSize", "EU")))))
+                                "packSize", 1)))))
                 .andExpect(status().isOk());
     }
 
     @Test
     @Order(6)
-    void packUnit_delete_existingRef_returns200() throws Exception {
+    void packUnit_put_missingPackSize_returns400() throws Exception {
         Map<String, Object> article = Map.of(
                 "clientNumber", "TEST",
-                "articleNumber", "ART-STOCK",
-                "articleName", "Stock Article");
+                "articleNumber", "ART-NO-PS",
+                "articleName", "No pack size");
+        Map<String, Object> packUnit = Map.of("article", article);
         mockMvc.perform(put(API + "/packUnit").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(List.of(Map.of("article", article, "packSize", "EU")))))
-                .andExpect(status().isOk());
-        mockMvc.perform(delete(API + "/packUnit").contextPath(CTX)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(List.of(Map.of(
-                                "clientNumber", "TEST",
-                                "articleNumber", "ART-STOCK",
-                                "packSize", "EU")))))
-                .andExpect(status().isOk());
+                        .content(json(List.of(packUnit))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codes[0]").value("E-AKO-GENR-0002"));
     }
 
     @Test
@@ -148,7 +150,7 @@ class ApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("clientNumber", "TEST", "transmissionTag", "CLEANUP"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.transmissionTag").value("CLEANUP"));
+                .andExpect(jsonPath("$.status").value("OK"));
     }
 
     // --- InboundDelivery (Goods-In) ---
@@ -162,12 +164,12 @@ class ApiIntegrationTest {
                 "articleName", "Article 1");
         mockMvc.perform(put(API + "/packUnit").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(List.of(Map.of("article", article, "packSize", "EU")))))
+                        .content(json(List.of(Map.of("article", article, "packSize", TestFixtures.PACK_SIZE, "capacityInformation", TestFixtures.defaultCapacity())))))
                 .andExpect(status().isOk());
         Map<String, Object> line = Map.of(
                 "lineReference", "L1",
                 "articleNumber", "A1",
-                "packSize", "EU",
+                "packSize", 1,
                 "expectedQuantity", 10);
         Map<String, Object> delivery = Map.of(
                 "clientNumber", "C1",
@@ -178,7 +180,7 @@ class ApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(delivery)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.processingStatus").value("NEW"));
+                .andExpect(jsonPath("$.status").value("OK"));
     }
 
     @Test
@@ -187,7 +189,7 @@ class ApiIntegrationTest {
         Map<String, Object> line = Map.of(
                 "lineReference", "L1",
                 "articleNumber", "A1",
-                "packSize", "EU",
+                "packSize", 1,
                 "expectedQuantity", 5);
         Map<String, Object> delivery = Map.of(
                 "clientNumber", "C1",
@@ -219,93 +221,187 @@ class ApiIntegrationTest {
         mockMvc.perform(delete(API + "/inboundDelivery").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of("clientNumber", "C1", "inboundDeliveryNumber", "ID-001"))))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"));
     }
 
-    // --- StorageOrder (Goods-In) ---
+    @Test
+    @Order(14)
+    void openapi_spec_isVersion30_withoutTopLevelWebhooks() throws Exception {
+        mockMvc.perform(get(CTX + "/v3/api-docs").contextPath(CTX))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.openapi").value(org.hamcrest.Matchers.startsWith("3.0")))
+                .andExpect(jsonPath("$.webhooks").doesNotExist())
+                .andExpect(jsonPath("$.paths['/oneapi/v1/_webhooks/inboundDeliveryReply']").exists())
+                // Server URL is request-derived (not hardcoded wispelberg.eu)
+                .andExpect(jsonPath("$.servers[0].url").value(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("wispelberg.eu"))))
+                .andExpect(jsonPath("$.servers[0].url").value(org.hamcrest.Matchers.containsString("/kisoft")));
+    }
+
+    // --- GoodsOutOrder (Goods-Out) ---
 
     @Test
     @Order(20)
-    void storageOrder_post_returns200() throws Exception {
-        Map<String, Object> targetPosition = Map.of("storageArea", "AREA1", "locationNumber", "L01");
+    void goodsOutOrder_post_returns200() throws Exception {
+        Map<String, Object> article = Map.of(
+                "clientNumber", "C1",
+                "articleNumber", "A1",
+                "articleName", "Article A1");
+        mockMvc.perform(put(API + "/packUnit").contextPath(CTX)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(List.of(Map.of("article", article, "packSize", TestFixtures.PACK_SIZE, "capacityInformation", TestFixtures.defaultCapacity())))))
+                .andExpect(status().isOk());
+
+        asrsStock.addStock("C1", "A1", "1", 5);
+
+        Map<String, Object> line = Map.of(
+                "lineReference", "GL1",
+                "requestedQuantity", 5,
+                "articleNumber", "A1",
+                "packSize", TestFixtures.PACK_SIZE,
+                "reservationCode", TestFixtures.RESERVATION_CODE);
         Map<String, Object> order = Map.of(
                 "clientNumber", "C1",
-                "orderNumber", "SO-001",
-                "loadUnitCode", "LU-001",
-                "loadCarrier", "PAL",
-                "targetPosition", targetPosition,
-                "contentType", "FULL");
-        mockMvc.perform(post(API + "/storageOrder").contextPath(CTX)
+                "orderNumber", "GO-001",
+                "sheetNumber", 1,
+                "loadCarrier", "FULL",
+                "goodsOutOrderLines", List.of(line));
+        mockMvc.perform(post(API + "/goodsOutOrder").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(order)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.processingStatus").value("NEW"));
+                .andExpect(jsonPath("$.status").value("OK"));
     }
 
     @Test
     @Order(21)
-    void storageOrder_post_duplicate_returns400() throws Exception {
-        Map<String, Object> targetPosition = Map.of("storageArea", "AREA1");
+    void goodsOutOrder_post_duplicate_returns400() throws Exception {
+        Map<String, Object> line = Map.of(
+                "lineReference", "GL2",
+                "requestedQuantity", 1,
+                "articleNumber", "A1",
+                "reservationCode", TestFixtures.RESERVATION_CODE);
         Map<String, Object> order = Map.of(
                 "clientNumber", "C1",
-                "orderNumber", "SO-001",
-                "loadUnitCode", "LU-002",
-                "loadCarrier", "PAL",
-                "targetPosition", targetPosition,
-                "contentType", "FULL");
-        mockMvc.perform(post(API + "/storageOrder").contextPath(CTX)
+                "orderNumber", "GO-001",
+                "sheetNumber", 1,
+                "loadCarrier", "FULL",
+                "goodsOutOrderLines", List.of(line));
+        mockMvc.perform(post(API + "/goodsOutOrder").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(order)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codes[0]").value("E-AKO-MOVM-0002"));
     }
 
     @Test
     @Order(22)
-    void storageOrder_get_returns200() throws Exception {
-        mockMvc.perform(get(API + "/storageOrder").contextPath(CTX))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @Order(23)
-    void storageOrder_patch_returns200() throws Exception {
-        Map<String, Object> targetPosition = Map.of("storageArea", "AREA2", "locationNumber", "L02");
+    void goodsOutOrder_patch_whenNew_returns200() throws Exception {
         Map<String, Object> body = Map.of(
                 "clientNumber", "C1",
-                "orderNumber", "SO-001",
-                "targetPosition", targetPosition);
-        mockMvc.perform(patch(API + "/storageOrder").contextPath(CTX)
+                "orderNumber", "GO-001",
+                "sheetNumber", 1,
+                "priority", 3);
+        mockMvc.perform(patch(API + "/goodsOutOrder").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(body)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"));
     }
 
-    @Test
-    @Order(24)
-    void storageOrder_delete_whenNew_returns200() throws Exception {
-        mockMvc.perform(delete(API + "/storageOrder").contextPath(CTX)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("clientNumber", "C1", "orderNumber", "SO-001"))))
-                .andExpect(status().isOk());
-    }
-
-    // --- Webhooks doc endpoints (documentation-only) ---
+    // --- InventoryRequest (Inventory) ---
 
     @Test
     @Order(30)
-    void webhooks_inboundDeliveryReply_doc_returns200() throws Exception {
-        mockMvc.perform(post(API + "/_webhooks/inboundDeliveryReply").contextPath(CTX)
+    void inventoryRequest_post_returns200() throws Exception {
+        Map<String, Object> line = Map.of("lineReference", "IL1");
+        Map<String, Object> request = Map.of(
+                "clientNumber", "C1",
+                "requestNumber", "INV-001",
+                "inventoryRequestLine", line);
+        mockMvc.perform(post(API + "/inventoryRequest").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("clientNumber", "C1", "inboundDeliveryNumber", "ID-1"))))
-                .andExpect(status().isOk());
+                        .content(json(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"));
     }
 
     @Test
     @Order(31)
-    void webhooks_storageOrderReply_doc_returns200() throws Exception {
-        mockMvc.perform(post(API + "/_webhooks/storageOrderReply").contextPath(CTX)
+    void inventoryRequest_delete_returns200() throws Exception {
+        mockMvc.perform(delete(API + "/inventoryRequest").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("clientNumber", "C1", "orderNumber", "O1"))))
+                        .content(json(Map.of("clientNumber", "C1", "requestNumber", "INV-001"))))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @Order(32)
+    void inventoryRequest_delete_unknown_returns400() throws Exception {
+        mockMvc.perform(delete(API + "/inventoryRequest").contextPath(CTX)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("clientNumber", "C1", "requestNumber", "DOES-NOT-EXIST"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codes[0]").value("E-AKO-MOVM-0003"));
+    }
+
+    // --- Stock Reports ---
+
+    @Test
+    @Order(40)
+    void requestInventoryReport_returns200() throws Exception {
+        mockMvc.perform(post(API + "/requestInventoryReport").contextPath(CTX)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("requestNumber", "REP-001"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"));
+    }
+
+    @Test
+    @Order(41)
+    void requestStorageCapacityReport_returns200() throws Exception {
+        mockMvc.perform(post(API + "/requestStorageCapacityReport").contextPath(CTX)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("requestNumber", "CAP-001", "storageArea", "AREA1"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OK"));
+    }
+
+    // --- Webhooks (manual callback triggers) ---
+
+    @Test
+    @Order(50)
+    void webhooks_inboundDeliveryReply_whenCallbacksDisabled_returns503() throws Exception {
+        mockMvc.perform(post(API + "/_webhooks/inboundDeliveryReply").contextPath(CTX)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of(
+                                "clientNumber", "C1",
+                                "inboundDeliveryNumber", "ID-1",
+                                "processingStatus", "NEW"))))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value("UNAVAILABLE"));
+    }
+
+    @Test
+    @Order(51)
+    void webhooks_goodsOutOrderReply_whenCallbacksDisabled_returns503() throws Exception {
+        mockMvc.perform(post(API + "/_webhooks/goodsOutOrderReply").contextPath(CTX)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("clientNumber", "C1", "orderNumber", "GO-1", "sheetNumber", 1))))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value("UNAVAILABLE"));
+    }
+
+    // --- Homepage (renders README.md + links to Swagger) ---
+
+    @Test
+    @Order(60)
+    void homepage_rendersReadmeAndLinksToSwagger() throws Exception {
+        mockMvc.perform(get(CTX + "/").contextPath(CTX))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("KiSoft One")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(CTX + "/swagger-ui.html")));
     }
 }

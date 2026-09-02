@@ -1,0 +1,19 @@
+knapp:
+  mock:
+    bypass-auth: true
+    ui-auth-enabled: false
+    reply-callback-enabled: true
+    # No outgoing webhooks during tests (blank base URL => ReplyCallbackService no-ops).
+    reply-callback-url: ""
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:kisoftmock-test;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/v2.0

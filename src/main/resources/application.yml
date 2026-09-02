@@ -1,5 +1,7 @@
 server:
   port: 8084
+  # Honour X-Forwarded-* from reverse proxies so Swagger/OpenAPI server URL matches the public host.
+  forward-headers-strategy: framework
   servlet:
     context-path: /kisoft
 
@@ -8,15 +10,41 @@ springdoc:
   api-docs:
     path: /v3/api-docs
     enabled: true
+    version: openapi_3_0
   swagger-ui:
     path: /swagger-ui.html
     enabled: true
+    persist-authorization: true
     operationsSorter: method
     tagsSorter: alpha
 
 spring:
   application:
     name: knapp-kisoft-mock
+
+  datasource:
+    # Persistent file DB (survives restarts). Override path via SPRING_DATASOURCE_URL or KNAPP_H2_FILE.
+    # Tests use in-memory via the test profile.
+    url: jdbc:h2:file:${KNAPP_H2_FILE:./data/kisoftmock};DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: false
+      path: /h2-console
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
 
   # OAuth2 / Microsoft Entra ID configuratie (reference)
   # Token wordt niet gevalideerd - elke Bearer token wordt geaccepteerd
@@ -28,13 +56,31 @@ spring:
           # audience: ${AZURE_CLIENT_ID}  # optioneel
 
 # Mock mode: als true, accepteert de server ook requests zonder Bearer token (voor lokaal testen)
-# max-records: max aantal pack units en storage orders (default 1000)
+# max-records: max aantal pack units (default 1000)
 knapp:
   mock:
     bypass-auth: false  # Zet op true voor ontwikkeling zonder Entra ID
-    max-records: 2000   # Override via: java -jar app.jar --knapp.mock.max-records=500
-    reply-callback-url: http://localhost:8080  # When set, mock POSTs InboundDeliveryReply/StorageOrderReply to this base URL
-    webhook-ibm-client-id: your-client-id      # Sent as X-IBM-Client-Id on webhook POSTs (IBM APIC)
-    webhook-ibm-client-secret: your-secret     # Sent as X-IBM-Client-Secret on webhook POSTs (IBM APIC)
+    max-records: 20000   # Override via: java -jar app.jar --knapp.mock.max-records=500
+    # Homepage + Swagger UI login (HTTP Basic). Password via MOCK_UI_PASSWORD env var.
+    ui-auth-enabled: true
+    ui-username: knapp
+    ui-password: ${MOCK_UI_PASSWORD:}
+    # Outgoing KiSoft One → HOST webhooks (IBM APIC + Entra ID Bearer).
+    # Set secrets via env / /etc/knapp-kisoft-mock/env — never commit real credentials.
+    reply-callback-enabled: true
+    # KiSoft One → HOST via IBM APIC: POST {base}/{path-prefix}/{messageName}
+    # e.g. …/kisoft/oneapi/v1/_webhooks/inboundDeliveryReply
+    reply-callback-url: ${KNAPP_REPLY_CALLBACK_URL:}
+    webhook-ibm-client-id: ${KNAPP_WEBHOOK_IBM_CLIENT_ID:}
+    webhook-ibm-client-secret: ${KNAPP_WEBHOOK_IBM_CLIENT_SECRET:}
+    reply-callback-path-prefix: oneapi/v1/_webhooks
+    webhook-oauth-tenant-id: ${KNAPP_WEBHOOK_OAUTH_TENANT_ID:}
+    webhook-oauth-client-id: ${KNAPP_WEBHOOK_OAUTH_CLIENT_ID:}
+    webhook-oauth-client-secret: ${KNAPP_WEBHOOK_OAUTH_CLIENT_SECRET:}
+    webhook-oauth-scope: ${KNAPP_WEBHOOK_OAUTH_SCOPE:}
+    storage-order-reply-enabled: false         # IB-02: optional PostStorageOrderReply per load unit
+    # Book inbound expectedQuantity into ASRS on PostInboundDelivery so GoodsOut works without operator loadUnit.
+    # Same articleNumber/packSize keys as inventoryRequestLine / goodsOutOrderLines. Set false for strict IB-02.
+    inbound-auto-stock: true
   api:
     base-path: /api/v1
