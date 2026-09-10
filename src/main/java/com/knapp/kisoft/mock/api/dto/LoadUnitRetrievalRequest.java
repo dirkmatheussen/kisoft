@@ -18,5 +18,6 @@ public record LoadUnitRetrievalRequest(
         Integer quantity,
         Integer slot,
         String stockType,
-        Boolean toConventional
+        Boolean toConventional,
+        String reservationCode
 ) {}

@@ -58,4 +58,40 @@ class AsrsStockReservationKeyTest {
         assertThat(asrsStock.getQuantity("VPNA-TAC", "ART-1", "1", "PL")).isEqualTo(2);
         assertThat(asrsStock.getQuantity("VPNA-TAC", "ART-1", "1", "SE")).isEqualTo(6);
     }
+
+    @Test
+    void setQuantity_withoutCoo_updatesTheOnlyMatchingPackSizeRow() {
+        repo.deleteAll();
+        asrsStock.addStock("VPNA-TAC", "ART-1", "1", "PL", 6, null);
+
+        int delta = asrsStock.setQuantity("VPNA-TAC", "ART-1", "1", "", 4);
+
+        assertThat(delta).isEqualTo(-2);
+        assertThat(repo.findAll()).hasSize(1);
+        assertThat(asrsStock.getQuantity("VPNA-TAC", "ART-1", "1", "PL")).isEqualTo(4);
+        assertThat(asrsStock.getQuantity("VPNA-TAC", "ART-1", "1", "")).isEqualTo(0);
+    }
+
+    @Test
+    void setQuantity_withoutCoo_createsEmptyKeyWhenMultipleCoosExist() {
+        repo.deleteAll();
+        asrsStock.addStock("VPNA-TAC", "ART-1", "1", "PL", 6, null);
+        asrsStock.addStock("VPNA-TAC", "ART-1", "1", "SE", 4, null);
+
+        asrsStock.setQuantity("VPNA-TAC", "ART-1", "1", "", 1);
+
+        assertThat(repo.findAll()).hasSize(3);
+        assertThat(asrsStock.getQuantity("VPNA-TAC", "ART-1", "1", "PL")).isEqualTo(6);
+        assertThat(asrsStock.getQuantity("VPNA-TAC", "ART-1", "1", "SE")).isEqualTo(4);
+        assertThat(asrsStock.getQuantity("VPNA-TAC", "ART-1", "1", "")).isEqualTo(1);
+    }
+
+    @Test
+    void removeStock_withoutCoo_deductsTheOnlyMatchingPackSizeRow() {
+        repo.deleteAll();
+        asrsStock.addStock("VPNA-TAC", "ART-1", "1", "PL", 6, null);
+
+        assertThat(asrsStock.removeStock("VPNA-TAC", "ART-1", "1", "", 2)).isEqualTo(2);
+        assertThat(asrsStock.getQuantity("VPNA-TAC", "ART-1", "1", "PL")).isEqualTo(4);
+    }
 }

@@ -56,7 +56,7 @@ public class WarehouseInternalController {
         List<StockEntry> loadUnitStock = hasStock
                 ? List.of(new StockEntry(r.loadUnitCode(), r.slot(),
                         new PackUnitKeyRef(r.clientNumber(), r.articleNumber(), r.packSize()),
-                        r.quantity(), r.stockType(), null, null, null, null, null, null, null, null))
+                        r.quantity(), r.stockType(), null, null, null, r.reservationCode(), null, null, null, null))
                 : null;
 
         callback.sendLoadUnitMoved(new LoadUnitMoved(
@@ -68,7 +68,7 @@ public class WarehouseInternalController {
         if (Boolean.TRUE.equals(r.toConventional()) && hasStock) {
             int qty = r.quantity() != null ? r.quantity() : 0;
             int removed = asrsStock.removeStock(
-                    r.clientNumber(), r.articleNumber(), toKey(r.packSize()), "", qty);
+                    r.clientNumber(), r.articleNumber(), toKey(r.packSize()), r.reservationCode(), qty);
             StockEntry processedStock = loadUnitStock != null && !loadUnitStock.isEmpty()
                     ? loadUnitStock.get(0) : null;
             callback.sendStockCorrected(new StockCorrected(
@@ -89,14 +89,16 @@ public class WarehouseInternalController {
         int delta = r.deltaQuantity() != null ? r.deltaQuantity() : 0;
         if (delta != 0 && isPresent(r.packSize())) {
             if (delta > 0) {
-                asrsStock.addStock(r.clientNumber(), r.articleNumber(), toKey(r.packSize()), "", delta, null);
+                asrsStock.addStock(r.clientNumber(), r.articleNumber(), toKey(r.packSize()),
+                        r.reservationCode(), delta, null);
             } else {
-                asrsStock.removeStock(r.clientNumber(), r.articleNumber(), toKey(r.packSize()), "", -delta);
+                asrsStock.removeStock(r.clientNumber(), r.articleNumber(), toKey(r.packSize()),
+                        r.reservationCode(), -delta);
             }
         }
         StockEntry entry = new StockEntry(r.targetLoadUnitCode(), r.targetSlot(),
                 new PackUnitKeyRef(r.clientNumber(), r.articleNumber(), r.packSize()),
-                null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, r.reservationCode(), null, null, null, null);
         callback.sendStockCorrected(new StockCorrected(
                 UUID.randomUUID().toString(),
                 null, null, delta, r.stationName(),

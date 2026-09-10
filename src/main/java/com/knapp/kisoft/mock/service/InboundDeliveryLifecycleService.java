@@ -248,12 +248,13 @@ public class InboundDeliveryLifecycleService {
 
         // When inbound-auto-stock already booked expectedQuantity, do not double-book on load unit.
         if (!properties.isInboundAutoStock()) {
+            InboundDelivery delivery = inboundStore.readPayload(entity);
             asrsStock.addStock(
                     r.clientNumber(),
                     progress.getArticleNumber(),
                     progress.getPackSize(),
                     r.quantity(),
-                    attributesFrom(r));
+                    attributesFrom(r, cooOf(delivery, r.lineReference())));
         }
 
         Integer packSize = progress.getPackSize() != null ? Integer.valueOf(progress.getPackSize()) : null;
@@ -372,13 +373,16 @@ public class InboundDeliveryLifecycleService {
                 line.stockLockReasons());
     }
 
-    private static AsrsStockAttributes attributesFrom(InboundDeliveryLoadUnitReceipt r) {
+    private static AsrsStockAttributes attributesFrom(InboundDeliveryLoadUnitReceipt r, String lineCoo) {
+        String coo = r.reservationCode() != null && !r.reservationCode().isBlank()
+                ? r.reservationCode()
+                : lineCoo;
         return new AsrsStockAttributes(
                 r.stockType(),
                 r.lotNumber(),
                 r.dateMark(),
                 r.serialNumber(),
-                r.reservationCode(),
+                coo,
                 null);
     }
 

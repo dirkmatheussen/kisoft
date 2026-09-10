@@ -18,5 +18,6 @@ public record RepackRequest(
         Integer packSize,
         Integer deltaQuantity,
         String stationName,
-        String reason
+        String reason,
+        String reservationCode
 ) {}

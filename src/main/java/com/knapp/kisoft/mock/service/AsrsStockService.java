@@ -77,10 +77,14 @@ public class AsrsStockService {
     public int removeStock(String clientNumber, String articleNumber, String packSize,
                            String reservationCode, int qty) {
         if (qty <= 0) return 0;
+        String coo = ReservationCodes.normalize(reservationCode);
         AsrsStockEntity entity = repo
                 .findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
-                        clientNumber, articleNumber, packSize, ReservationCodes.normalize(reservationCode))
+                        clientNumber, articleNumber, packSize, coo)
                 .orElse(null);
+        if (entity == null && coo.isEmpty()) {
+            entity = uniqueRowForPackSize(clientNumber, articleNumber, packSize);
+        }
         if (entity == null) return 0;
         int removed = Math.min(qty, entity.getQuantity());
         entity.setQuantity(entity.getQuantity() - removed);
@@ -102,11 +106,25 @@ public class AsrsStockService {
         AsrsStockEntity entity = repo
                 .findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
                         clientNumber, articleNumber, packSize, coo)
-                .orElseGet(() -> new AsrsStockEntity(clientNumber, articleNumber, packSize, coo, 0));
+                .orElse(null);
+        if (entity == null && coo.isEmpty()) {
+            entity = uniqueRowForPackSize(clientNumber, articleNumber, packSize);
+        }
+        if (entity == null) {
+            entity = new AsrsStockEntity(clientNumber, articleNumber, packSize, coo, 0);
+        }
         int delta = counted - entity.getQuantity();
         entity.setQuantity(counted);
         repo.save(entity);
         return delta;
+    }
+
+    private AsrsStockEntity uniqueRowForPackSize(String clientNumber, String articleNumber, String packSize) {
+        List<AsrsStockEntity> matches = repo.findByClientNumberAndArticleNumber(clientNumber, articleNumber)
+                .stream()
+                .filter(row -> packSize.equals(row.getPackSize()))
+                .toList();
+        return matches.size() == 1 ? matches.get(0) : null;
     }
 
     /** Total available quantity for an article across all pack sizes (intake OUT_OF_STOCK check). */
