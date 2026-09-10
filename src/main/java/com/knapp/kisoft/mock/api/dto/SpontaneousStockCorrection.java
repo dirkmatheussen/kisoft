@@ -13,6 +13,7 @@ public record SpontaneousStockCorrection(
         @NotBlank String clientNumber,
         @NotBlank String articleNumber,
         @NotNull Integer packSize,
+        String reservationCode,
         @NotNull @Min(0) Integer countedQuantity,
         String reason,
         String stationName

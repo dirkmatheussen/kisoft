@@ -67,6 +67,7 @@ public class InventoryRequestLifecycleService {
             return new Result(Code.WRONG_STATUS, "Inventory request already " + entity.getProcessingStatus());
         }
 
+        InventoryRequest request = store.readPayload(entity);
         List<InventoryRequestReplyLine> replyLines = new ArrayList<>();
         StockEntry countedEntry = null;
         int netDelta = 0;
@@ -76,11 +77,13 @@ public class InventoryRequestLifecycleService {
                 replyLines.add(new InventoryRequestReplyLine(line.lineReference(), counted));
 
                 if (line.articleNumber() != null && isPresent(line.packSize())) {
+                    String reservationCode = cooOf(request, line.lineReference());
                     int delta = asrsStock.setQuantity(
-                            c.clientNumber(), line.articleNumber(), PackSizeKeys.toKey(line.packSize()), counted);
+                            c.clientNumber(), line.articleNumber(), PackSizeKeys.toKey(line.packSize()),
+                            reservationCode, counted);
                     countedEntry = new StockEntry(line.loadUnitCode(), line.slot(),
                             new PackUnitKeyRef(c.clientNumber(), line.articleNumber(), line.packSize()),
-                            counted, null, null, null, null, null, null, null, null,
+                            counted, null, null, null, null, reservationCode, null, null, null,
                             Instant.now().toString());
                     netDelta += delta;
                 }
@@ -89,7 +92,6 @@ public class InventoryRequestLifecycleService {
 
         store.updateStatus(c.clientNumber(), c.requestNumber(), "FINISHED");
 
-        InventoryRequest request = store.readPayload(entity);
         callback.sendInventoryRequestReply(new InventoryRequestReply(
                 c.clientNumber(), c.requestNumber(), replyLines.isEmpty() ? null : replyLines,
                 "SYSTEM", "FINISHED", Instant.now().toString(),
@@ -113,5 +115,13 @@ public class InventoryRequestLifecycleService {
                     Instant.now().toString(), countedEntry));
         }
         return Result.ok("Inventory counted, PostInventoryRequestReply(FINISHED) sent");
+    }
+
+    private static String cooOf(InventoryRequest request, String lineReference) {
+        if (request.inventoryRequestLine() == null
+                || !request.inventoryRequestLine().lineReference().equals(lineReference)) {
+            return "";
+        }
+        return ReservationCodes.normalize(request.inventoryRequestLine().reservationCode());
     }
 }

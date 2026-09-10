@@ -35,10 +35,11 @@ class InventoryImportServiceTest {
 
         assertThat(result.rowsRead()).isEqualTo(3);
         assertThat(result.rowsWritten()).isEqualTo(3);
-        assertThat(asrsStock.getQuantity("VPNA-TAC", "VO 25133699 - 1", "1")).isEqualTo(6);
-        assertThat(asrsStock.getQuantity("VPNA-TAC", "VO 25133699 - 2", "1")).isEqualTo(6);
-        assertThat(asrsStock.getQuantity("VPNA-TAC", "VO 25133699 - 3", "1")).isEqualTo(6);
-        assertThat(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "VO 25133699 - 2", "1"))
+        assertThat(asrsStock.getQuantity("VPNA-TAC", "VO 25133699 - 1", "1", "PL")).isEqualTo(6);
+        assertThat(asrsStock.getQuantity("VPNA-TAC", "VO 25133699 - 2", "1", "PL")).isEqualTo(6);
+        assertThat(asrsStock.getQuantity("VPNA-TAC", "VO 25133699 - 3", "1", "PL")).isEqualTo(6);
+        assertThat(repo.findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                "VPNA-TAC", "VO 25133699 - 2", "1", "PL"))
                 .get()
                 .extracting(AsrsStockEntity::getReservationCode)
                 .isEqualTo("PL");
@@ -52,7 +53,8 @@ class InventoryImportServiceTest {
         var result = importService.importItems(List.of(blankCoo), false, true);
 
         assertThat(result.rowsWritten()).isEqualTo(1);
-        assertThat(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "ART-BLANK", "1"))
+        assertThat(repo.findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                "VPNA-TAC", "ART-BLANK", "1", ""))
                 .get()
                 .extracting(AsrsStockEntity::getReservationCode)
                 .isEqualTo("");
@@ -71,7 +73,7 @@ class InventoryImportServiceTest {
         var result = importService.importFromFile(file, true, true);
 
         assertThat(result.rowsWritten()).isEqualTo(2);
-        assertThat(asrsStock.getQuantity("C1", "ART - 1", "1")).isEqualTo(6);
-        assertThat(asrsStock.getQuantity("C1", "ART - 2", "1")).isEqualTo(6);
+        assertThat(asrsStock.getQuantity("C1", "ART - 1", "1", "PL")).isEqualTo(6);
+        assertThat(asrsStock.getQuantity("C1", "ART - 2", "1", "PL")).isEqualTo(6);
     }
 }

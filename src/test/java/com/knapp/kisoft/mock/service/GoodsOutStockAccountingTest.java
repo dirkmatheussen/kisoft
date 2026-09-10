@@ -48,14 +48,14 @@ class GoodsOutStockAccountingTest {
         GoodsOutOrderEntity entity = entity("STARTED");
         when(store.find("OB", "GO-1", 1)).thenReturn(Optional.of(entity));
         when(store.readPayload(entity)).thenReturn(order);
-        when(asrsStock.getQuantity("OB", "ART-1", "1")).thenReturn(5);
+        when(asrsStock.getQuantity("OB", "ART-1", "1", "BE")).thenReturn(5);
         when(packUnitStore.findAnyByArticle("OB", "ART-1")).thenReturn(Optional.empty());
 
         lifecycle.confirmPicking(new GoodsOutPickConfirmation(
                 "OB", "GO-1", 1,
                 List.of(new GoodsOutPickLine("GL1", 5, null, null, null))));
 
-        verify(asrsStock).removeStock("OB", "ART-1", "1", 5);
+        verify(asrsStock).removeStock("OB", "ART-1", "1", "BE", 5);
         verify(store).updateStatus("OB", "GO-1", 1, GoodsOutOrderLifecycleService.STATUS_PROCESSED);
     }
 
@@ -75,15 +75,15 @@ class GoodsOutStockAccountingTest {
         assertThat(reply.goodsOutOrderLines()).hasSize(1);
         assertThat(reply.goodsOutOrderLines().get(0).processingResult()).isEqualTo("PROCESSED");
         assertThat(reply.goodsOutOrderLines().get(0).processedQuantity()).isEqualTo(5);
-        verify(asrsStock, never()).removeStock(anyString(), anyString(), anyString(), anyInt());
-        verify(asrsStock, never()).getQuantity(anyString(), anyString(), anyString());
+        verify(asrsStock, never()).removeStock(anyString(), anyString(), anyString(), anyString(), anyInt());
+        verify(asrsStock, never()).getQuantity(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
     void validateIntake_rejectsWhenRequestedExceedsAvailable() {
         when(packUnitStore.exists("OB", "ART-1", 1)).thenReturn(true);
         when(packUnitStore.findAnyByArticle("OB", "ART-1")).thenReturn(Optional.empty());
-        when(asrsStock.getQuantity("OB", "ART-1", "1")).thenReturn(3);
+        when(asrsStock.getQuantity("OB", "ART-1", "1", "BE")).thenReturn(3);
 
         var errors = lifecycle.validateIntakeLines("OB", List.of(line(5)));
 

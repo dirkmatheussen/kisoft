@@ -68,11 +68,13 @@ public class StockOperatorController {
             @Parameter(description = "Wait for IBM APIC response and include it in the reply (recommended for Swagger)")
             @RequestParam(defaultValue = "true") boolean wait) {
         int delta = asrsStock.setQuantity(
-                request.clientNumber(), request.articleNumber(), toKey(request.packSize()), request.countedQuantity());
+                request.clientNumber(), request.articleNumber(), toKey(request.packSize()),
+                request.reservationCode(), request.countedQuantity());
         StockEntry entry = new StockEntry(
                 null, null,
                 new PackUnitKeyRef(request.clientNumber(), request.articleNumber(), request.packSize()),
-                request.countedQuantity(), null, null, null, null, null, null, null, null,
+                request.countedQuantity(), null, null, null, null,
+                request.reservationCode(), null, null, null,
                 Instant.now().toString());
         StockCorrected event = new StockCorrected(
                 UUID.randomUUID().toString(),

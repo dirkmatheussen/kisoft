@@ -58,9 +58,12 @@ class Chapter5GoodsOutInventoryTest {
     }
 
     private void postGoodsOut(String order, String article, int qty) throws Exception {
-        int available = asrsStock.getQuantity("OB", article, TestFixtures.PACK_SIZE_KEY);
+        int available = asrsStock.getQuantity(
+                "OB", article, TestFixtures.PACK_SIZE_KEY, TestFixtures.RESERVATION_CODE);
         if (available < qty) {
-            asrsStock.addStock("OB", article, TestFixtures.PACK_SIZE_KEY, qty - available);
+            asrsStock.addStock(
+                    "OB", article, TestFixtures.PACK_SIZE_KEY, TestFixtures.RESERVATION_CODE,
+                    qty - available, null);
         }
         Map<String, Object> line = Map.of("lineReference", "GL1", "requestedQuantity", qty,
                 "articleNumber", article, "packSize", TestFixtures.PACK_SIZE,
@@ -81,7 +84,7 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void goodsOut_happyPath_started_processed_finished() throws Exception {
         putPackUnit("OB", "ART-OK", null);
-        asrsStock.addStock("OB", "ART-OK", "1", 5);
+        asrsStock.addStock("OB", "ART-OK", "1", TestFixtures.RESERVATION_CODE, 5, null);
         postGoodsOut("GO-OK", "ART-OK", 5);
 
         mockMvc.perform(post(API + "/goodsOutOrder/operator/start").contextPath(CTX)
@@ -95,14 +98,14 @@ class Chapter5GoodsOutInventoryTest {
                 .andExpect(status().isOk());
 
         // PROCESSED deducted full requested quantity
-        assertEquals(0, asrsStock.getQuantity("OB", "ART-OK", "1"));
+        assertEquals(0, asrsStock.getQuantity("OB", "ART-OK", "1", TestFixtures.RESERVATION_CODE));
 
         mockMvc.perform(post(API + "/goodsOutOrder/operator/finalCheck").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON).content(json(ref("GO-OK"))))
                 .andExpect(status().isOk());
 
         // FINISHED must not re-deduct or fail after stock is already zero
-        assertEquals(0, asrsStock.getQuantity("OB", "ART-OK", "1"));
+        assertEquals(0, asrsStock.getQuantity("OB", "ART-OK", "1", TestFixtures.RESERVATION_CODE));
 
         // Final check again -> wrong status (already FINISHED).
         mockMvc.perform(post(API + "/goodsOutOrder/operator/finalCheck").contextPath(CTX)
@@ -114,7 +117,8 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void inbound_incrementsExistingInventory_thenGoodsOutRejectsOverRequest() throws Exception {
         putPackUnit("OB", "ART-INC", null);
-        asrsStock.addStock("OB", "ART-INC", TestFixtures.PACK_SIZE_KEY, 4);
+        asrsStock.addStock(
+                "OB", "ART-INC", TestFixtures.PACK_SIZE_KEY, TestFixtures.RESERVATION_CODE, 4, null);
 
         Map<String, Object> inboundLine = Map.of(
                 "lineReference", "IL1",
@@ -131,7 +135,8 @@ class Chapter5GoodsOutInventoryTest {
                                 "inboundDeliveryLines", List.of(inboundLine)))))
                 .andExpect(status().isOk());
 
-        assertEquals(10, asrsStock.getQuantity("OB", "ART-INC", TestFixtures.PACK_SIZE_KEY));
+        assertEquals(10, asrsStock.getQuantity(
+                "OB", "ART-INC", TestFixtures.PACK_SIZE_KEY, TestFixtures.RESERVATION_CODE));
 
         Map<String, Object> goLine = Map.of(
                 "lineReference", "GL1",
@@ -170,7 +175,8 @@ class Chapter5GoodsOutInventoryTest {
                                 "inboundDeliveryLines", List.of(inboundLine)))))
                 .andExpect(status().isOk());
 
-        assertEquals(8, asrsStock.getQuantity("OB", "ART-IB-GO", TestFixtures.PACK_SIZE_KEY));
+        assertEquals(8, asrsStock.getQuantity(
+                "OB", "ART-IB-GO", TestFixtures.PACK_SIZE_KEY, TestFixtures.RESERVATION_CODE));
 
         Map<String, Object> goLine = Map.of(
                 "lineReference", "GL1",
@@ -192,7 +198,7 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void goodsOut_delete_whenNew_returns200() throws Exception {
         putPackUnit("OB", "ART-DEL", null);
-        asrsStock.addStock("OB", "ART-DEL", "1", 5);
+        asrsStock.addStock("OB", "ART-DEL", "1", TestFixtures.RESERVATION_CODE, 5, null);
         postGoodsOut("GO-DEL", "ART-DEL", 2);
 
         mockMvc.perform(delete(API + "/goodsOutOrder").contextPath(CTX)
@@ -203,7 +209,7 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void goodsOut_delete_whenStarted_returns409() throws Exception {
         putPackUnit("OB", "ART-DEL2", null);
-        asrsStock.addStock("OB", "ART-DEL2", "1", 5);
+        asrsStock.addStock("OB", "ART-DEL2", "1", TestFixtures.RESERVATION_CODE, 5, null);
         postGoodsOut("GO-DEL2", "ART-DEL2", 2);
 
         mockMvc.perform(post(API + "/goodsOutOrder/operator/start").contextPath(CTX)
@@ -227,7 +233,7 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void goodsOut_pick_beforeStart_returns400() throws Exception {
         putPackUnit("OB", "ART-NS", null);
-        asrsStock.addStock("OB", "ART-NS", "1", 3);
+        asrsStock.addStock("OB", "ART-NS", "1", TestFixtures.RESERVATION_CODE, 3, null);
         postGoodsOut("GO-NS", "ART-NS", 2);
 
         Map<String, Object> pick = Map.of("clientNumber", "OB", "orderNumber", "GO-NS", "sheetNumber", 1,
@@ -257,7 +263,7 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void goodsOut_post_zeroQuantity_returns400WithLineCode() throws Exception {
         putPackUnit("OB", "ART-ZERO", null);
-        asrsStock.addStock("OB", "ART-ZERO", "1", 10);
+        asrsStock.addStock("OB", "ART-ZERO", "1", TestFixtures.RESERVATION_CODE, 10, null);
         Map<String, Object> line = Map.of("lineReference", "GL1", "requestedQuantity", 0,
                 "articleNumber", "ART-ZERO", "packSize", 1, "reservationCode", TestFixtures.RESERVATION_CODE);
         Map<String, Object> body = Map.of("clientNumber", "OB", "orderNumber", "GO-ZERO", "sheetNumber", 1,
@@ -286,7 +292,7 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void goodsOut_post_blockedArticle_returns400WithLineCode() throws Exception {
         putPackUnit("OB", "ART-LOCK-POST", List.of("ARTICLE_IS_LOCKED"));
-        asrsStock.addStock("OB", "ART-LOCK-POST", "1", 10);
+        asrsStock.addStock("OB", "ART-LOCK-POST", "1", TestFixtures.RESERVATION_CODE, 10, null);
         Map<String, Object> line = Map.of("lineReference", "GL1", "requestedQuantity", 5,
                 "articleNumber", "ART-LOCK-POST", "packSize", 1, "reservationCode", TestFixtures.RESERVATION_CODE);
         Map<String, Object> body = Map.of("clientNumber", "OB", "orderNumber", "GO-LOCK", "sheetNumber", 1,
@@ -301,7 +307,7 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void goodsOut_validateIntakeLines_andRuntimeValidateLine() throws Exception {
         putPackUnit("OB", "ART-VAL", null);
-        asrsStock.addStock("OB", "ART-VAL", "1", 10);
+        asrsStock.addStock("OB", "ART-VAL", "1", TestFixtures.RESERVATION_CODE, 10, null);
         putPackUnit("OB", "ART-LOCK", List.of("ARTICLE_IS_LOCKED"));
         putPackUnit("OB", "ART-SALE", List.of("TAKEN_OFF_SALE"));
         putPackUnit("OB", "ART-OOS", null);
@@ -379,10 +385,12 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void inventory_count_closesRequestAndCorrectsStock() throws Exception {
         putPackUnit("OB", "ART-INV", null);
-        asrsStock.addStock("OB", "ART-INV", "1", 10);
+        asrsStock.addStock("OB", "ART-INV", "1", TestFixtures.RESERVATION_CODE, 10, null);
 
         Map<String, Object> req = Map.of("clientNumber", "OB", "requestNumber", "INV-1",
-                "inventoryRequestLine", Map.of("lineReference", "IL1", "articleNumber", "ART-INV", "packSize", 1));
+                "inventoryRequestLine", Map.of(
+                        "lineReference", "IL1", "articleNumber", "ART-INV", "packSize", 1,
+                        "reservationCode", TestFixtures.RESERVATION_CODE));
         mockMvc.perform(post(API + "/inventoryRequest").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON).content(json(req)))
                 .andExpect(status().isOk());
@@ -393,7 +401,8 @@ class Chapter5GoodsOutInventoryTest {
         mockMvc.perform(post(API + "/inventoryRequest/operator/count").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON).content(json(count)))
                 .andExpect(status().isOk());
-        assertEquals(7, asrsStock.getQuantity("OB", "ART-INV", "1"));
+        assertEquals(7, asrsStock.getQuantity(
+                "OB", "ART-INV", "1", TestFixtures.RESERVATION_CODE));
 
         // Count again -> already FINISHED.
         mockMvc.perform(post(API + "/inventoryRequest/operator/count").contextPath(CTX)
@@ -415,18 +424,20 @@ class Chapter5GoodsOutInventoryTest {
     @Test
     void stockOperator_spontaneousCorrection_setsAbsoluteQuantity() throws Exception {
         putPackUnit("OB", "ART-SPON", null);
-        asrsStock.addStock("OB", "ART-SPON", "1", 10);
+        asrsStock.addStock("OB", "ART-SPON", "1", TestFixtures.RESERVATION_CODE, 10, null);
 
         Map<String, Object> body = Map.of(
                 "clientNumber", "OB",
                 "articleNumber", "ART-SPON",
                 "packSize", 1,
+                "reservationCode", TestFixtures.RESERVATION_CODE,
                 "countedQuantity", 6,
                 "reason", "OPERATOR_CORRECTION");
         mockMvc.perform(post(API + "/stock/operator/correct?wait=false").contextPath(CTX)
                         .contentType(MediaType.APPLICATION_JSON).content(json(body)))
                 .andExpect(status().isOk());
-        assertEquals(6, asrsStock.getQuantity("OB", "ART-SPON", "1"));
+        assertEquals(6, asrsStock.getQuantity(
+                "OB", "ART-SPON", "1", TestFixtures.RESERVATION_CODE));
     }
 
     // ---- GS §5.3.3 / §5.3.4 warehouse-internal ----

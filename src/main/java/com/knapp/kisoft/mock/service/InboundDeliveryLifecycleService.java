@@ -144,7 +144,8 @@ public class InboundDeliveryLifecycleService {
                 continue;
             }
             asrsStock.removeStock(
-                    delivery.clientNumber(), line.articleNumber(), toKey(line.packSize()), line.expectedQuantity());
+                    delivery.clientNumber(), line.articleNumber(), toKey(line.packSize()),
+                    line.reservationCode(), line.expectedQuantity());
         }
     }
 
@@ -349,6 +350,7 @@ public class InboundDeliveryLifecycleService {
                         progress.getClientNumber(),
                         progress.getArticleNumber(),
                         progress.getPackSize(),
+                        cooOf(delivery, progress.getLineReference()),
                         shortfall);
             }
         }
@@ -378,6 +380,17 @@ public class InboundDeliveryLifecycleService {
                 r.serialNumber(),
                 r.reservationCode(),
                 null);
+    }
+
+    private static String cooOf(InboundDelivery delivery, String lineReference) {
+        if (delivery.inboundDeliveryLines() == null) {
+            return "";
+        }
+        return delivery.inboundDeliveryLines().stream()
+                .filter(line -> lineReference.equals(line.lineReference()))
+                .map(line -> ReservationCodes.normalize(line.reservationCode()))
+                .findFirst()
+                .orElse("");
     }
 
     private static Integer parseSlot(String compartment) {

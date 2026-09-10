@@ -48,7 +48,7 @@ class StockOperatorLockControllerTest {
     @BeforeEach
     void seed() {
         repo.deleteAll();
-        asrsStock.addStock("VPNA-TAC", "VO 25133699", "1", 6,
+        asrsStock.addStock("VPNA-TAC", "VO 25133699", "1", "PL", 6,
                 new AsrsStockAttributes(null, null, null, null, "PL", null));
     }
 
@@ -130,7 +130,8 @@ class StockOperatorLockControllerTest {
         assertThat(unlock.reason()).isEqualTo("OPERATOR_UNLOCK");
         assertThat(unlock.processedStock().stockLockReasons()).isNull();
         assertThat(AsrsStockService.readLockReasons(
-                repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "VO 25133699", "1").orElseThrow()))
+                repo.findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                        "VPNA-TAC", "VO 25133699", "1", "PL").orElseThrow()))
                 .isNull();
     }
 

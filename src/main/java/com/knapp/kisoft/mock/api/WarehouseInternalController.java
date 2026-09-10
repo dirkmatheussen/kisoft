@@ -67,7 +67,8 @@ public class WarehouseInternalController {
 
         if (Boolean.TRUE.equals(r.toConventional()) && hasStock) {
             int qty = r.quantity() != null ? r.quantity() : 0;
-            int removed = asrsStock.removeStock(r.clientNumber(), r.articleNumber(), toKey(r.packSize()), qty);
+            int removed = asrsStock.removeStock(
+                    r.clientNumber(), r.articleNumber(), toKey(r.packSize()), "", qty);
             StockEntry processedStock = loadUnitStock != null && !loadUnitStock.isEmpty()
                     ? loadUnitStock.get(0) : null;
             callback.sendStockCorrected(new StockCorrected(
@@ -88,9 +89,9 @@ public class WarehouseInternalController {
         int delta = r.deltaQuantity() != null ? r.deltaQuantity() : 0;
         if (delta != 0 && isPresent(r.packSize())) {
             if (delta > 0) {
-                asrsStock.addStock(r.clientNumber(), r.articleNumber(), toKey(r.packSize()), delta);
+                asrsStock.addStock(r.clientNumber(), r.articleNumber(), toKey(r.packSize()), "", delta, null);
             } else {
-                asrsStock.removeStock(r.clientNumber(), r.articleNumber(), toKey(r.packSize()), -delta);
+                asrsStock.removeStock(r.clientNumber(), r.articleNumber(), toKey(r.packSize()), "", -delta);
             }
         }
         StockEntry entry = new StockEntry(r.targetLoadUnitCode(), r.targetSlot(),

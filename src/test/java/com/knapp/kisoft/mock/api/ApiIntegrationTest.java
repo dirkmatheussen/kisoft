@@ -253,7 +253,7 @@ class ApiIntegrationTest {
                         .content(json(List.of(Map.of("article", article, "packSize", TestFixtures.PACK_SIZE, "capacityInformation", TestFixtures.defaultCapacity())))))
                 .andExpect(status().isOk());
 
-        asrsStock.addStock("C1", "A1", "1", 5);
+        asrsStock.addStock("C1", "A1", "1", TestFixtures.RESERVATION_CODE, 5, null);
 
         Map<String, Object> line = Map.of(
                 "lineReference", "GL1",

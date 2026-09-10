@@ -137,9 +137,11 @@ public class GoodsOutOrderLifecycleService {
 
     private int availableStock(String clientNumber, GoodsOutOrderLine line) {
         if (isPresent(line.packSize())) {
-            return asrsStock.getQuantity(clientNumber, line.articleNumber(), toKey(line.packSize()));
+            return asrsStock.getQuantity(
+                    clientNumber, line.articleNumber(), toKey(line.packSize()), line.reservationCode());
         }
-        return asrsStock.availableForArticle(clientNumber, line.articleNumber());
+        return asrsStock.availableForArticle(
+                clientNumber, line.articleNumber(), ReservationCodes.normalize(line.reservationCode()));
     }
 
     /**
@@ -233,7 +235,8 @@ public class GoodsOutOrderLifecycleService {
         Integer slot = pick != null ? pick.slot() : null;
 
         if (isPresent(line.packSize())) {
-            asrsStock.removeStock(order.clientNumber(), line.articleNumber(), toKey(line.packSize()), picked);
+            asrsStock.removeStock(
+                    order.clientNumber(), line.articleNumber(), toKey(line.packSize()), line.reservationCode(), picked);
         }
 
         String result = "PROCESSED";

@@ -90,7 +90,7 @@ class ODataReadIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(List.of(TestFixtures.packUnit(article)))))
                 .andExpect(status().isOk());
-        asrsStock.addStock("OD", "ART-GO", "1", 10);
+        asrsStock.addStock("OD", "ART-GO", "1", TestFixtures.RESERVATION_CODE, 10, null);
 
         Map<String, Object> line = Map.of("lineReference", "GL1", "requestedQuantity", 2,
                 "articleNumber", "ART-GO", "packSize", 1, "reservationCode", TestFixtures.RESERVATION_CODE);

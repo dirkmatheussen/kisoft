@@ -126,7 +126,7 @@ public class InventoryImportService {
                         pu.clientNumber(),
                         article,
                         packSize,
-                        item.reservationCode(),
+                        ReservationCodes.normalize(item.reservationCode()),
                         item.quantity() != null ? item.quantity() : 0);
                 entity.setStockType(item.stockType());
                 entity.setLotNumber(item.lotNumber());
