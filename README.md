@@ -212,7 +212,7 @@ Real KiSoft One advances an order's `processingStatus` as automation and operato
 | POST | `/oneapi/v1/stock/operator/correct` | §5.3 (IN-02) | Spontaneous stock correction (absolute counted qty) → `PostStockCorrected` without prior inventory request. |
 | POST | `/oneapi/v1/stock/operator/lock` | §8.1.3 (IN-05) | Operator stock lock / unlock. `action: LOCK` adds `stockLockReasons`, `UNLOCK` removes them (empty list = all). Row matched on client + article + packSize + `reservationCode` (Country of Origin). Emits `PostStockLockChanged`; 404 `E-AKO-STOC-0003` when no match, 400 `E-AKO-GENR-0002` on unknown reason. |
 
-Lifecycle errors use `E-AKO-MOVM-0003` (order not found) and `E-AKO-MOVM-0004` (wrong status for the requested transition).
+Lifecycle errors use `E-AKO-MOVM-0003` (order not found) and `E-AKO-MOVM-0004` (wrong status for the requested transition). Only `/stock/operator/lock` mutates the stored `stockLockReasons`; the `PostStockLockChanged` events emitted by the damaged-pick and inventory-count flows are notifications only and do not change persisted locks.
 
 ---
 
@@ -339,7 +339,7 @@ curl -X POST "$BASE/stock/operator/correct?wait=true" \
 curl -X POST "$BASE/stock/operator/lock?wait=true" \
   -H "Content-Type: application/json" \
   -d '{"action":"LOCK","clientNumber":"VPNA-TAC","articleNumber":"VO 25133699","packSize":1,
-       "reservationCode":"PL","stockLockReasons":["QS_REQ"],"stationName":"MOCK-STATION"}'
+       "reservationCode":"PL","stockLockReasons":["QS_REQ"],"stationName":"MOCK_STATION"}'
 ```
 
 Without `wait=true`, watch the **server log** for:
@@ -444,6 +444,7 @@ Goods-out line `processingResult` (on reply webhooks during picking): `UNTOUCHED
 | `E-AKO-MOVM-0006` / `-0008` / `-0009` | Goods-in: qty exceeds open / compartment not empty / mixed SKU in compartment |
 | `E-AKO-STOC-0001` | Not enough stock (goods-out intake) |
 | `E-AKO-STOC-0002` | Cannot delete part: ASRS still holds inventory |
+| `E-AKO-STOC-0003` | Mock deviation: no ASRS stock for clientNumber + articleNumber + packSize + reservationCode (operator `/stock/operator/lock`, HTTP 404). In the KNAPP product API this code means *Unknown load unit*. |
 
 ---
 

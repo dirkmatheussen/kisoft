@@ -37,7 +37,23 @@ class AsrsStockLockTest {
     void invalidReasons_reportsUnknownCodesOnly() {
         assertThat(StockLockReasons.invalid(List.of("QS_REQ", "BOGUS", "HOST"))).containsExactly("BOGUS");
         assertThat(StockLockReasons.invalid(null)).isEmpty();
-        assertThat(StockLockReasons.ALL).hasSize(10).contains("LOCKED_FOR_VISION_CHECK", "TIME_TO_EXPIRE");
+        assertThat(StockLockReasons.ALL).containsExactly(
+                "DEFAULT", "EXPIRED", "HOST", "LOCATION_LOCKED", "LOCKED_FOR_VISION_CHECK",
+                "LOST", "QS_REQ", "SRS_SYSTEM_BROKEN", "SUBSYSTEM_LOCKED", "TIME_TO_EXPIRE");
+    }
+
+    @Test
+    void addStock_withAttributesWithoutLockReasons_keepsExistingLocks() {
+        row.setStockLockReasonsJson("[\"QS_REQ\"]");
+        when(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "VO 25133699", "1"))
+                .thenReturn(Optional.of(row));
+
+        service.addStock("VPNA-TAC", "VO 25133699", "1", 4,
+                new AsrsStockAttributes("NORMAL", null, null, null, "PL", null));
+
+        assertThat(row.getQuantity()).isEqualTo(10);
+        assertThat(row.getStockLockReasonsJson()).isEqualTo("[\"QS_REQ\"]");
+        assertThat(row.getStockType()).isEqualTo("NORMAL");
     }
 
     @Test

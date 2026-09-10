@@ -16,6 +16,8 @@ import com.knapp.kisoft.mock.service.ReplyCallbackService;
 import com.knapp.kisoft.mock.service.StockLockReasons;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,6 +43,9 @@ import static com.knapp.kisoft.mock.service.PackSizeKeys.toKey;
 @RestController
 @RequestMapping("/oneapi/v1/stock/operator")
 public class StockOperatorController {
+
+    static final String CODE_STOCK_NOT_FOUND = "E-AKO-STOC-0003";
+    static final String CODE_FORMAT_ERROR = "E-AKO-GENR-0002";
 
     private final AsrsStockService asrsStock;
     private final ReplyCallbackService callback;
@@ -84,9 +89,6 @@ public class StockOperatorController {
         return ResponseEntity.ok(new OneApiOkResponse(200, "OK", "Spontaneous stock correction applied"));
     }
 
-    static final String CODE_STOCK_NOT_FOUND = "E-AKO-STOC-0003";
-    static final String CODE_FORMAT_ERROR = "E-AKO-GENR-0002";
-
     @Operation(operationId = "OperatorStockLockChange",
             summary = "Operator stock lock / unlock (IN-05)",
             description = "Adds (LOCK) or removes (UNLOCK) stock lock reasons on the ASRS stock row matched by "
@@ -96,9 +98,13 @@ public class StockOperatorController {
                     + "Valid reasons: " + "DEFAULT, EXPIRED, HOST, LOCATION_LOCKED, LOCKED_FOR_VISION_CHECK, LOST, "
                     + "QS_REQ, SRS_SYSTEM_BROKEN, SUBSYSTEM_LOCKED, TIME_TO_EXPIRE.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lock change applied; callback field shows APIC result when wait=true"),
-            @ApiResponse(responseCode = "400", description = "codes: E-AKO-GENR-0002 (unknown stockLockReasons, or LOCK without reasons)"),
-            @ApiResponse(responseCode = "404", description = "codes: E-AKO-STOC-0003 (no ASRS stock for key + reservationCode)")
+            @ApiResponse(responseCode = "200", description = "Lock change applied; callback field shows APIC result when wait=true",
+                    content = @Content(schema = @Schema(implementation = OneApiOkResponse.class))),
+            @ApiResponse(responseCode = "400", description = "codes: E-AKO-GENR-0002 (unknown stockLockReasons value, or LOCK without reasons). "
+                    + "Bean-validation failures on required fields return the default Spring error body.",
+                    content = @Content(schema = @Schema(implementation = OneApiErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "codes: E-AKO-STOC-0003 (mock: no ASRS stock for key + reservationCode)",
+                    content = @Content(schema = @Schema(implementation = OneApiErrorResponse.class)))
     })
     @PostMapping("/lock")
     public ResponseEntity<?> lock(

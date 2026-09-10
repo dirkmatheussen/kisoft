@@ -60,7 +60,7 @@ class StockOperatorLockControllerTest {
         m.put("packSize", 1);
         m.put("reservationCode", "PL");
         m.put("stockLockReasons", reasons);
-        m.put("stationName", "MOCK-STATION");
+        m.put("stationName", "MOCK_STATION");
         return m;
     }
 
@@ -80,7 +80,7 @@ class StockOperatorLockControllerTest {
         assertThat(event.processedQuantity()).isEqualTo(6);
         assertThat(event.addedStockLocks()).containsExactly("QS_REQ");
         assertThat(event.removedStockLocks()).isNull();
-        assertThat(event.stationName()).isEqualTo("MOCK-STATION");
+        assertThat(event.stationName()).isEqualTo("MOCK_STATION");
         assertThat(event.reason()).isEqualTo("OPERATOR_LOCK");
         assertThat(event.processedStock().packUnit().articleNumber()).isEqualTo("VO 25133699");
         assertThat(event.processedStock().packUnit().packSize()).isEqualTo(1);
@@ -92,6 +92,22 @@ class StockOperatorLockControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.value[0].stockLockReasons[0]").value("QS_REQ"))
                 .andExpect(jsonPath("$.value[0].quantity").value(6));
+    }
+
+    @Test
+    void lock_alreadyPresentReason_stillEmitsWebhookWithEmptyAdded() throws Exception {
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(post(API + "/stock/operator/lock?wait=false").contextPath(CTX)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(body("LOCK", List.of("QS_REQ")))))
+                    .andExpect(status().isOk());
+        }
+        ArgumentCaptor<StockLockChanged> captor = ArgumentCaptor.forClass(StockLockChanged.class);
+        verify(callbacks, org.mockito.Mockito.times(2)).sendStockLockChanged(captor.capture());
+        StockLockChanged second = captor.getAllValues().get(1);
+        assertThat(second.addedStockLocks()).isEmpty();
+        assertThat(second.removedStockLocks()).isNull();
+        assertThat(second.processedStock().stockLockReasons()).containsExactly("QS_REQ");
     }
 
     @Test

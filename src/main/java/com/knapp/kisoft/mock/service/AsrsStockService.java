@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.knapp.kisoft.mock.persistence.AsrsStockEntity;
 import com.knapp.kisoft.mock.persistence.AsrsStockRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,7 @@ import java.util.Optional;
 @Service
 public class AsrsStockService {
 
+    private static final Logger log = LoggerFactory.getLogger(AsrsStockService.class);
     private static final ObjectMapper LOCK_REASONS_MAPPER = new ObjectMapper();
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
 
@@ -173,6 +176,8 @@ public class AsrsStockService {
         try {
             entity.setStockLockReasonsJson(LOCK_REASONS_MAPPER.writeValueAsString(reasons));
         } catch (Exception e) {
+            log.warn("Could not serialize stockLockReasons {} for {}/{}/{} — clearing locks", reasons,
+                    entity.getClientNumber(), entity.getArticleNumber(), entity.getPackSize(), e);
             entity.setStockLockReasonsJson(null);
         }
     }
@@ -196,6 +201,8 @@ public class AsrsStockService {
         entity.setDateMark(attributes.dateMark());
         entity.setSerialNumber(attributes.serialNumber());
         entity.setReservationCode(attributes.reservationCode());
-        writeLockReasons(entity, attributes.stockLockReasons());
+        if (attributes.stockLockReasons() != null) {
+            writeLockReasons(entity, attributes.stockLockReasons());
+        }
     }
 }
