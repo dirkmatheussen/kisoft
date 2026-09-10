@@ -155,20 +155,29 @@ These GET endpoints return stored state in **OData v4 JSON** format:
 
 ### Bulk inventory import (mock, load-test)
 
-Seed ASRS from a PostInventoryReport JSON (`stockInventory` array):
+Seed ASRS from a PostInventoryReport JSON (`stockInventory` array).
+
+`importFile` and `--knapp.mock.import-inventory-report` read a **filesystem path on the mock host**, not a file on your workstation. Copy the report onto the server first (anywhere the Java process can read; on the Ubuntu service that is typically `/opt/knapp-kisoft-mock/data/`), then pass that path:
 
 ```bash
-# Preferred for large files (~100k rows): stream from disk
+# On the mock host (or scp the file there)
+sudo cp inventory-report.json /opt/knapp-kisoft-mock/data/inventory-report.json
+sudo chown knapp-mock:knapp-mock /opt/knapp-kisoft-mock/data/inventory-report.json
+```
+
+Preferred for large files (~100k rows): stream from that on-host path:
+
+```bash
 curl -s -u knapp:$MOCK_UI_PASSWORD -H "Authorization: Bearer x" -H "Content-Type: application/json" \
-  -d '{"path":"/Users/Dirk/Downloads/POSTINVENTORYREPORT_100000_PL_swagger.json"}' \
+  -d '{"path":"/opt/knapp-kisoft-mock/data/inventory-report.json"}' \
   "http://localhost:8084/kisoft/oneapi/v1/inventoryItem/operator/importFile?uniquifyArticles=true&replaceAll=true"
 ```
 
-Or at JVM start:
+Or at JVM start (same on-host path):
 
 ```bash
 java -jar target/knapp-kisoft-mock-4.0.8.jar \
-  --knapp.mock.import-inventory-report=/Users/Dirk/Downloads/POSTINVENTORYREPORT_100000_PL_swagger.json \
+  --knapp.mock.import-inventory-report=/opt/knapp-kisoft-mock/data/inventory-report.json \
   --knapp.mock.import-uniquify-articles=true \
   --knapp.mock.import-replace-all=true
 ```
