@@ -194,6 +194,11 @@ curl -s -H "Authorization: Bearer test-token" \
 
 ---
 
+ASRS inventory rows are unique on `(clientNumber, articleNumber, packSize, reservationCode)`.
+Blank/missing Country of Origin is stored as an empty string. Inbound booking creates a new row
+when CoO differs and increments quantity when the full key matches. Goods-out availability and
+pick deduction use the order line's `reservationCode`.
+
 ## Order lifecycles & mock operator endpoints
 
 Real KiSoft One advances an order's `processingStatus` as automation and operators do the work; each transition triggers a reply webhook (HIS Appendix §4.3.1). Because the mock has no physical warehouse, these endpoints let you **play the operator** and drive the lifecycle. They are **not** part of the KiSoft One API — they exist only to make the mock useful.
@@ -210,7 +215,7 @@ Real KiSoft One advances an order's `processingStatus` as automation and operato
 | POST | `/oneapi/v1/loadUnit/retrieve` | §5.3.3 | Targeted retrieval of a load unit → `PostLoadUnitMoved` (+ `PostStockCorrected` when `toConventional=true`). |
 | POST | `/oneapi/v1/loadUnit/repack` | §5.3.4 | Repacking / defragmentation → `PostStockCorrected`. |
 | POST | `/oneapi/v1/stock/operator/correct` | §5.3 (IN-02) | Spontaneous stock correction (absolute counted qty) → `PostStockCorrected` without prior inventory request. |
-| POST | `/oneapi/v1/stock/operator/lock` | §8.1.3 (IN-05) | Operator stock lock / unlock. `action: LOCK` adds `stockLockReasons`, `UNLOCK` removes them (empty list = all). Row matched on client + article + packSize + `reservationCode` (Country of Origin). Emits `PostStockLockChanged`; 404 `E-AKO-STOC-0003` when no match, 400 `E-AKO-GENR-0002` on unknown reason. |
+| POST | `/oneapi/v1/stock/operator/lock` | §8.1.3 (IN-05) | Operator stock lock / unlock. `action: LOCK` adds `stockLockReasons`, `UNLOCK` removes them (empty list = all). Finds the row by the ASRS unique key `(clientNumber, articleNumber, packSize, reservationCode)` (Country of Origin). Emits `PostStockLockChanged`; 404 `E-AKO-STOC-0003` when no row for that key, 400 `E-AKO-GENR-0002` on unknown reason. |
 
 Lifecycle errors use `E-AKO-MOVM-0003` (order not found) and `E-AKO-MOVM-0004` (wrong status for the requested transition). Only `/stock/operator/lock` mutates the stored `stockLockReasons`; the `PostStockLockChanged` events emitted by the damaged-pick and inventory-count flows are notifications only and do not change persisted locks.
 
@@ -468,7 +473,7 @@ Goods-out line `processingResult` (on reply webhooks during picking): `UNTOUCHED
 | `knapp.mock.webhook-oauth-client-secret` | *(in `application.yml`)* | Entra app client secret for webhook OAuth |
 | `knapp.mock.webhook-oauth-scope` | *(in `application.yml`)* | OAuth scope for the webhook access token |
 | `knapp.mock.storage-order-reply-enabled` | `false` | When `true`, each IB-02 load-unit receipt also emits optional `PostStorageOrderReply(STARTED/FINISHED)` |
-| `knapp.mock.inbound-auto-stock` | `true` | When `true`, `PostInboundDelivery` books each line's `expectedQuantity` into ASRS (keys: `articleNumber` + `packSize`, same as goods-out / `inventoryRequestLine`) so `PostGoodsOutOrder` no longer fails with `E-AKO-STOC-0001` before operator load-unit. Set `false` for strict IB-02 (stock only after load-unit). |
+| `knapp.mock.inbound-auto-stock` | `true` | When `true`, `PostInboundDelivery` books each line's `expectedQuantity` into ASRS (keys: `articleNumber` + `packSize` + `reservationCode`) so `PostGoodsOutOrder` no longer fails with `E-AKO-STOC-0001` before operator load-unit. Set `false` for strict IB-02 (stock only after load-unit). |
 
 Override at startup, e.g.:
 
