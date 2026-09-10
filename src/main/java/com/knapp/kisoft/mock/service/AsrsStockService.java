@@ -11,11 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Tracks aggregated ASRS inventory per (clientNumber, articleNumber, packSize).
+ * Tracks aggregated ASRS inventory per (clientNumber, articleNumber, packSize, reservationCode).
  * Backs the MA-01 E1 guard ("no part delete while ASRS inventory exists"), is increased on
  * inbound ({@link #addStock} creates or increments), and decreased when a goods-out order
  * reaches PROCESSED. Optional stock attributes follow inventory-report / StockInventory shape.
@@ -35,7 +34,7 @@ public class AsrsStockService {
 
     @Transactional
     public void addStock(String clientNumber, String articleNumber, String packSize, int delta) {
-        addStock(clientNumber, articleNumber, packSize, delta, null);
+        addStock(clientNumber, articleNumber, packSize, ReservationCodes.normalize(null), delta, null);
     }
 
     /**
@@ -44,10 +43,20 @@ public class AsrsStockService {
     @Transactional
     public void addStock(String clientNumber, String articleNumber, String packSize, int delta,
                          AsrsStockAttributes attributes) {
+        String reservationCode = ReservationCodes.normalize(
+                attributes != null ? attributes.reservationCode() : null);
+        addStock(clientNumber, articleNumber, packSize, reservationCode, delta, attributes);
+    }
+
+    @Transactional
+    public void addStock(String clientNumber, String articleNumber, String packSize, String reservationCode,
+                         int delta, AsrsStockAttributes attributes) {
         if (delta <= 0) return;
+        String coo = ReservationCodes.normalize(reservationCode);
         AsrsStockEntity entity = repo
-                .findByClientNumberAndArticleNumberAndPackSize(clientNumber, articleNumber, packSize)
-                .orElseGet(() -> new AsrsStockEntity(clientNumber, articleNumber, packSize, "", 0));
+                .findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                        clientNumber, articleNumber, packSize, coo)
+                .orElseGet(() -> new AsrsStockEntity(clientNumber, articleNumber, packSize, coo, 0));
         entity.setQuantity(entity.getQuantity() + delta);
         if (attributes != null) {
             applyAttributes(entity, attributes);
@@ -61,9 +70,16 @@ public class AsrsStockService {
      */
     @Transactional
     public int removeStock(String clientNumber, String articleNumber, String packSize, int qty) {
+        return removeStock(clientNumber, articleNumber, packSize, ReservationCodes.normalize(null), qty);
+    }
+
+    @Transactional
+    public int removeStock(String clientNumber, String articleNumber, String packSize,
+                           String reservationCode, int qty) {
         if (qty <= 0) return 0;
         AsrsStockEntity entity = repo
-                .findByClientNumberAndArticleNumberAndPackSize(clientNumber, articleNumber, packSize)
+                .findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                        clientNumber, articleNumber, packSize, ReservationCodes.normalize(reservationCode))
                 .orElse(null);
         if (entity == null) return 0;
         int removed = Math.min(qty, entity.getQuantity());
@@ -75,10 +91,18 @@ public class AsrsStockService {
     /** Set the absolute quantity for a slot/article (inventory count correction). Returns the delta applied. */
     @Transactional
     public int setQuantity(String clientNumber, String articleNumber, String packSize, int counted) {
+        return setQuantity(clientNumber, articleNumber, packSize, ReservationCodes.normalize(null), counted);
+    }
+
+    @Transactional
+    public int setQuantity(String clientNumber, String articleNumber, String packSize,
+                           String reservationCode, int counted) {
         if (counted < 0) counted = 0;
+        String coo = ReservationCodes.normalize(reservationCode);
         AsrsStockEntity entity = repo
-                .findByClientNumberAndArticleNumberAndPackSize(clientNumber, articleNumber, packSize)
-                .orElseGet(() -> new AsrsStockEntity(clientNumber, articleNumber, packSize, "", 0));
+                .findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                        clientNumber, articleNumber, packSize, coo)
+                .orElseGet(() -> new AsrsStockEntity(clientNumber, articleNumber, packSize, coo, 0));
         int delta = counted - entity.getQuantity();
         entity.setQuantity(counted);
         repo.save(entity);
@@ -93,14 +117,34 @@ public class AsrsStockService {
     }
 
     @Transactional(readOnly = true)
+    public int availableForArticle(String clientNumber, String articleNumber, String reservationCode) {
+        String coo = ReservationCodes.normalize(reservationCode);
+        return repo.findByClientNumberAndArticleNumber(clientNumber, articleNumber).stream()
+                .filter(entity -> coo.equals(ReservationCodes.normalize(entity.getReservationCode())))
+                .mapToInt(AsrsStockEntity::getQuantity).sum();
+    }
+
+    @Transactional(readOnly = true)
     public boolean hasStock(String clientNumber, String articleNumber, String packSize) {
         return repo.existsByClientNumberAndArticleNumberAndPackSizeAndQuantityGreaterThan(
                 clientNumber, articleNumber, packSize, 0);
     }
 
     @Transactional(readOnly = true)
+    public boolean hasStock(String clientNumber, String articleNumber, String packSize, String reservationCode) {
+        return repo.existsByClientNumberAndArticleNumberAndPackSizeAndReservationCodeAndQuantityGreaterThan(
+                clientNumber, articleNumber, packSize, ReservationCodes.normalize(reservationCode), 0);
+    }
+
+    @Transactional(readOnly = true)
     public int getQuantity(String clientNumber, String articleNumber, String packSize) {
-        return repo.findByClientNumberAndArticleNumberAndPackSize(clientNumber, articleNumber, packSize)
+        return getQuantity(clientNumber, articleNumber, packSize, ReservationCodes.normalize(null));
+    }
+
+    @Transactional(readOnly = true)
+    public int getQuantity(String clientNumber, String articleNumber, String packSize, String reservationCode) {
+        return repo.findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                        clientNumber, articleNumber, packSize, ReservationCodes.normalize(reservationCode))
                 .map(AsrsStockEntity::getQuantity)
                 .orElse(0);
     }
@@ -121,19 +165,20 @@ public class AsrsStockService {
                              List<String> added, List<String> removed) {}
 
     /**
-     * Add or remove lock reasons on the ASRS row matching (client, article, packSize) whose stored
-     * reservationCode (Country of Origin) equals {@code reservationCode} (blank == null).
+     * Add or remove lock reasons on the ASRS row matching
+     * (client, article, packSize, reservationCode).
      * UNLOCK with a null/empty list removes all locks. Quantity is untouched.
      *
-     * @return empty when no row matches the key or the reservation code differs
+     * @return empty when no row matches the key
      */
     @Transactional
     public Optional<LockChange> changeLocks(String clientNumber, String articleNumber, String packSizeKey,
                                             String reservationCode, LockAction action, List<String> reasons) {
         AsrsStockEntity entity = repo
-                .findByClientNumberAndArticleNumberAndPackSize(clientNumber, articleNumber, packSizeKey)
+                .findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                        clientNumber, articleNumber, packSizeKey, ReservationCodes.normalize(reservationCode))
                 .orElse(null);
-        if (entity == null || !Objects.equals(normalize(entity.getReservationCode()), normalize(reservationCode))) {
+        if (entity == null) {
             return Optional.empty();
         }
         List<String> current = readLockReasons(entity);
@@ -162,10 +207,6 @@ public class AsrsStockService {
         repo.save(entity);
         return Optional.of(new LockChange(entity, result.isEmpty() ? null : List.copyOf(result),
                 List.copyOf(added), List.copyOf(removed)));
-    }
-
-    private static String normalize(String s) {
-        return s == null || s.isBlank() ? null : s.trim();
     }
 
     private static void writeLockReasons(AsrsStockEntity entity, List<String> reasons) {
@@ -200,7 +241,6 @@ public class AsrsStockService {
         entity.setLotNumber(attributes.lotNumber());
         entity.setDateMark(attributes.dateMark());
         entity.setSerialNumber(attributes.serialNumber());
-        entity.setReservationCode(attributes.reservationCode());
         if (attributes.stockLockReasons() != null) {
             writeLockReasons(entity, attributes.stockLockReasons());
         }

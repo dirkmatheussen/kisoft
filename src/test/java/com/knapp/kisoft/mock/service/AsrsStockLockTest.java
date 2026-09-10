@@ -29,8 +29,7 @@ class AsrsStockLockTest {
     @BeforeEach
     void setUp() {
         service = new AsrsStockService(repo);
-        row = new AsrsStockEntity("VPNA-TAC", "VO 25133699", "1", "", 6);
-        row.setReservationCode("PL");
+        row = new AsrsStockEntity("VPNA-TAC", "VO 25133699", "1", "PL", 6);
     }
 
     @Test
@@ -45,10 +44,11 @@ class AsrsStockLockTest {
     @Test
     void addStock_withAttributesWithoutLockReasons_keepsExistingLocks() {
         row.setStockLockReasonsJson("[\"QS_REQ\"]");
-        when(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "VO 25133699", "1"))
+        when(repo.findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                "VPNA-TAC", "VO 25133699", "1", "PL"))
                 .thenReturn(Optional.of(row));
 
-        service.addStock("VPNA-TAC", "VO 25133699", "1", 4,
+        service.addStock("VPNA-TAC", "VO 25133699", "1", "PL", 4,
                 new AsrsStockAttributes("NORMAL", null, null, null, "PL", null));
 
         assertThat(row.getQuantity()).isEqualTo(10);
@@ -59,7 +59,8 @@ class AsrsStockLockTest {
     @Test
     void lock_addsNewReasonsWithoutDuplicates() {
         row.setStockLockReasonsJson("[\"HOST\"]");
-        when(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "VO 25133699", "1"))
+        when(repo.findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                "VPNA-TAC", "VO 25133699", "1", "PL"))
                 .thenReturn(Optional.of(row));
 
         var change = service.changeLocks("VPNA-TAC", "VO 25133699", "1", "PL", LOCK, List.of("HOST", "QS_REQ")).orElseThrow();
@@ -74,7 +75,8 @@ class AsrsStockLockTest {
     @Test
     void unlock_removesGivenReasons_andEmptyListRemovesAll() {
         row.setStockLockReasonsJson("[\"HOST\",\"QS_REQ\"]");
-        when(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "VO 25133699", "1"))
+        when(repo.findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                "VPNA-TAC", "VO 25133699", "1", "PL"))
                 .thenReturn(Optional.of(row));
 
         var first = service.changeLocks("VPNA-TAC", "VO 25133699", "1", "PL", UNLOCK, List.of("QS_REQ", "LOST")).orElseThrow();
@@ -89,20 +91,17 @@ class AsrsStockLockTest {
 
     @Test
     void changeLocks_isEmptyWhenReservationCodeDiffersOrRowMissing() {
-        when(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "VO 25133699", "1"))
-                .thenReturn(Optional.of(row));
         assertThat(service.changeLocks("VPNA-TAC", "VO 25133699", "1", "SE", LOCK, List.of("HOST"))).isEmpty();
 
-        when(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "UNKNOWN", "1"))
-                .thenReturn(Optional.empty());
         assertThat(service.changeLocks("VPNA-TAC", "UNKNOWN", "1", "PL", LOCK, List.of("HOST"))).isEmpty();
         verify(repo, never()).save(any());
     }
 
     @Test
     void changeLocks_treatsBlankAndNullReservationCodeAsEqual() {
-        row.setReservationCode(null);
-        when(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "VO 25133699", "1"))
+        row = new AsrsStockEntity("VPNA-TAC", "VO 25133699", "1", "", 6);
+        when(repo.findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                "VPNA-TAC", "VO 25133699", "1", ""))
                 .thenReturn(Optional.of(row));
         assertThat(service.changeLocks("VPNA-TAC", "VO 25133699", "1", "  ", LOCK, List.of("HOST"))).isPresent();
     }
