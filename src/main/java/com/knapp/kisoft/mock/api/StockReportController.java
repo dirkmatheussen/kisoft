@@ -62,13 +62,13 @@ public class StockReportController {
             operationId = "GetInventoryItems",
             summary = "[MOCK ONLY — not KiSoft API] List ASRS inventory items (OData read)",
             description = "**Not part of the KiSoft One Product API** (HIS Appendix §2.3.1: KiSoft exposes no GET requests). "
-                    + "Mock-only inspection of booked ASRS stock (same articleNumber/packSize keys as "
-                    + "`inventoryRequestLine` / goods-out). Supports `$filter`, `$top`, `$skip`, `$count`. "
-                    + "Example filter: `clientNumber eq 'OB' and articleNumber eq 'ART-001'`.",
+                    + "Mock-only inspection of booked ASRS stock in StockInventory shape "
+                    + "(`packUnit` + quantity + stock attributes). Supports `$filter`, `$top`, `$skip`, `$count`. "
+                    + "Example filter: `packUnit.clientNumber eq 'OB' and reservationCode eq 'PL'`.",
             tags = { OpenApiConfig.MOCK_ODATA_READ_TAG })
     @GetMapping("/inventoryItem")
     public ResponseEntity<ODataCollectionResponse<InventoryItem>> getInventoryItems(
-            @Parameter(description = "OData filter, e.g. clientNumber eq 'OB' and packSize eq '1'")
+            @Parameter(description = "OData filter, e.g. packUnit.clientNumber eq 'OB' and packUnit.packSize eq '1'")
             @RequestParam(value = "$filter", required = false) String filter,
             @Parameter(description = "Maximum records to return (default 100, max 1000)")
             @RequestParam(value = "$top", required = false) String top,
@@ -84,10 +84,15 @@ public class StockReportController {
                 all,
                 ODataQuerySupport.parseFilter(filter),
                 item -> ODataQuerySupport.fields(
-                        "clientNumber", ODataQuerySupport.str(item.clientNumber()),
-                        "articleNumber", ODataQuerySupport.str(item.articleNumber()),
-                        "packSize", ODataQuerySupport.str(item.packSize()),
-                        "quantity", ODataQuerySupport.str(item.quantity())),
+                        "packUnit.clientNumber", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().clientNumber() : null),
+                        "packUnit.articleNumber", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().articleNumber() : null),
+                        "packUnit.packSize", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().packSize() : null),
+                        "clientNumber", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().clientNumber() : null),
+                        "articleNumber", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().articleNumber() : null),
+                        "packSize", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().packSize() : null),
+                        "quantity", ODataQuerySupport.str(item.quantity()),
+                        "reservationCode", ODataQuerySupport.str(item.reservationCode()),
+                        "stockType", ODataQuerySupport.str(item.stockType())),
                 ODataQuerySupport.parseTop(top),
                 ODataQuerySupport.parseSkip(skip),
                 ODataQuerySupport.parseCount(count));
@@ -142,7 +147,15 @@ public class StockReportController {
 
     private static InventoryItem toInventoryItem(AsrsStockEntity s) {
         Integer packSize = s.getPackSize() != null ? Integer.valueOf(s.getPackSize()) : null;
-        return new InventoryItem(s.getClientNumber(), s.getArticleNumber(), packSize, s.getQuantity());
+        return new InventoryItem(
+                new PackUnitKeyRef(s.getClientNumber(), s.getArticleNumber(), packSize),
+                s.getQuantity(),
+                s.getStockType(),
+                s.getLotNumber(),
+                s.getDateMark(),
+                s.getSerialNumber(),
+                s.getReservationCode(),
+                AsrsStockService.readLockReasons(s));
     }
 
     private static StockInventory toStockInventory(AsrsStockEntity s) {
@@ -150,6 +163,11 @@ public class StockReportController {
         return new StockInventory(
                 new PackUnitKeyRef(s.getClientNumber(), s.getArticleNumber(), packSize),
                 s.getQuantity(),
-                null, null, null, null, null, null);
+                s.getStockType(),
+                s.getLotNumber(),
+                s.getDateMark(),
+                s.getSerialNumber(),
+                s.getReservationCode(),
+                AsrsStockService.readLockReasons(s));
     }
 }

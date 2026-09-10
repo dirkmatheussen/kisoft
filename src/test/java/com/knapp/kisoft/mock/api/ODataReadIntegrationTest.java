@@ -114,14 +114,60 @@ class ODataReadIntegrationTest {
         asrsStock.addStock("OD", "ART-INV-OD", "1", 7);
 
         mockMvc.perform(get(API + "/inventoryItem").contextPath(CTX)
-                        .param("$filter", "clientNumber eq 'OD' and articleNumber eq 'ART-INV-OD'")
+                        .param("$filter", "packUnit.clientNumber eq 'OD' and packUnit.articleNumber eq 'ART-INV-OD'")
                         .param("$count", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$['@odata.context']").value("/kisoft/oneapi/v1/$metadata#InventoryItems"))
                 .andExpect(jsonPath("$['@odata.count']").value(1))
-                .andExpect(jsonPath("$.value[0].clientNumber").value("OD"))
-                .andExpect(jsonPath("$.value[0].articleNumber").value("ART-INV-OD"))
-                .andExpect(jsonPath("$.value[0].packSize").value(1))
+                .andExpect(jsonPath("$.value[0].packUnit.clientNumber").value("OD"))
+                .andExpect(jsonPath("$.value[0].packUnit.articleNumber").value("ART-INV-OD"))
+                .andExpect(jsonPath("$.value[0].packUnit.packSize").value(1))
                 .andExpect(jsonPath("$.value[0].quantity").value(7));
+    }
+
+    @Test
+    void getInventoryItems_includesAttributesFromInbound() throws Exception {
+        Map<String, Object> article = Map.of(
+                "clientNumber", "OD", "articleNumber", "ART-META", "articleName", "Meta");
+        mockMvc.perform(put(API + "/packUnit").contextPath(CTX)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(List.of(TestFixtures.packUnit(article)))))
+                .andExpect(status().isOk());
+
+        Map<String, Object> inboundLine = Map.of(
+                "lineReference", "IL1",
+                "articleNumber", "ART-META",
+                "packSize", TestFixtures.PACK_SIZE,
+                "expectedQuantity", 5,
+                "stockType", "A",
+                "lotNumber", "LOT-9",
+                "dateMark", "2026-01-01",
+                "serialNumber", "SN-1",
+                "reservationCode", "PL",
+                "stockLockReasons", List.of("LOCKED_FOR_VISION_CHECK"));
+        mockMvc.perform(post(API + "/inboundDelivery").contextPath(CTX)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of(
+                                "clientNumber", "OD",
+                                "inboundDeliveryNumber", "IB-META-1",
+                                "supplierNumber", "SUP",
+                                "inboundDeliveryLines", List.of(inboundLine)))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get(API + "/inventoryItem").contextPath(CTX)
+                        .param("$filter", "packUnit.articleNumber eq 'ART-META' and reservationCode eq 'PL'")
+                        .param("$count", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['@odata.count']").value(1))
+                .andExpect(jsonPath("$.value[0].packUnit.clientNumber").value("OD"))
+                .andExpect(jsonPath("$.value[0].packUnit.articleNumber").value("ART-META"))
+                .andExpect(jsonPath("$.value[0].packUnit.packSize").value(1))
+                .andExpect(jsonPath("$.value[0].quantity").value(5))
+                .andExpect(jsonPath("$.value[0].stockType").value("A"))
+                .andExpect(jsonPath("$.value[0].lotNumber").value("LOT-9"))
+                .andExpect(jsonPath("$.value[0].dateMark").value("2026-01-01"))
+                .andExpect(jsonPath("$.value[0].serialNumber").value("SN-1"))
+                .andExpect(jsonPath("$.value[0].reservationCode").value("PL"))
+                .andExpect(jsonPath("$.value[0].stockLockReasons[0]").value("LOCKED_FOR_VISION_CHECK"));
     }
 }

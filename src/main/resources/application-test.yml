@@ -5,6 +5,7 @@ knapp:
     reply-callback-enabled: true
     # No outgoing webhooks during tests (blank base URL => ReplyCallbackService no-ops).
     reply-callback-url: ""
+    inbound-auto-stock: true
 
 spring:
   datasource:

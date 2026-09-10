@@ -95,7 +95,12 @@ public class InboundDeliveryLifecycleService {
                 continue;
             }
             String packSizeKey = toKey(line.packSize());
-            asrsStock.addStock(delivery.clientNumber(), line.articleNumber(), packSizeKey, line.expectedQuantity());
+            asrsStock.addStock(
+                    delivery.clientNumber(),
+                    line.articleNumber(),
+                    packSizeKey,
+                    line.expectedQuantity(),
+                    attributesFrom(line));
             StockEntry processedStock = new StockEntry(
                     line.loadUnitCode(),
                     null,
@@ -242,7 +247,12 @@ public class InboundDeliveryLifecycleService {
 
         // When inbound-auto-stock already booked expectedQuantity, do not double-book on load unit.
         if (!properties.isInboundAutoStock()) {
-            asrsStock.addStock(r.clientNumber(), progress.getArticleNumber(), progress.getPackSize(), r.quantity());
+            asrsStock.addStock(
+                    r.clientNumber(),
+                    progress.getArticleNumber(),
+                    progress.getPackSize(),
+                    r.quantity(),
+                    attributesFrom(r));
         }
 
         Integer packSize = progress.getPackSize() != null ? Integer.valueOf(progress.getPackSize()) : null;
@@ -348,6 +358,26 @@ public class InboundDeliveryLifecycleService {
                                        String loadUnitCode, String status) {
         callback.sendStorageOrderReply(new StorageOrderReply(
                 loadUnitCode, clientNumber, inboundDeliveryNumber, status, Instant.now().toString()));
+    }
+
+    private static AsrsStockAttributes attributesFrom(InboundDeliveryLine line) {
+        return new AsrsStockAttributes(
+                line.stockType(),
+                line.lotNumber(),
+                line.dateMark(),
+                line.serialNumber(),
+                line.reservationCode(),
+                line.stockLockReasons());
+    }
+
+    private static AsrsStockAttributes attributesFrom(InboundDeliveryLoadUnitReceipt r) {
+        return new AsrsStockAttributes(
+                r.stockType(),
+                r.lotNumber(),
+                r.dateMark(),
+                r.serialNumber(),
+                r.reservationCode(),
+                null);
     }
 
     private static Integer parseSlot(String compartment) {

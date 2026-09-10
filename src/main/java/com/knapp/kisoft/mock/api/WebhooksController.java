@@ -52,7 +52,13 @@ public class WebhooksController {
             String messageName,
             boolean wait,
             Runnable asyncSend) {
+        // Always route through ReplyCallbackService so the payload is logged (also when disabled).
         if (!properties.areCallbacksEnabled()) {
+            if (wait) {
+                callbacks.deliverSync(pathKey, payload, messageName);
+            } else {
+                asyncSend.run();
+            }
             return ResponseEntity.status(503).body(new OneApiOkResponse(
                     503,
                     "UNAVAILABLE",

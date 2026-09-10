@@ -4,6 +4,10 @@ server:
   forward-headers-strategy: framework
   servlet:
     context-path: /kisoft
+  tomcat:
+    # Allow large InventoryReport JSON imports (~100k rows / ~15MB).
+    max-http-form-post-size: 52MB
+    max-swallow-size: 52MB
 
 # SpringDoc / Swagger UI (API docs and webhooks)
 springdoc:
@@ -42,6 +46,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
 
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
@@ -56,11 +64,9 @@ spring:
           # audience: ${AZURE_CLIENT_ID}  # optioneel
 
 # Mock mode: als true, accepteert de server ook requests zonder Bearer token (voor lokaal testen)
-# max-records: max aantal pack units (default 1000)
 knapp:
   mock:
     bypass-auth: false  # Zet op true voor ontwikkeling zonder Entra ID
-    max-records: 20000   # Override via: java -jar app.jar --knapp.mock.max-records=500
     # Homepage + Swagger UI login (HTTP Basic). Password via MOCK_UI_PASSWORD env var.
     ui-auth-enabled: true
     ui-username: knapp
@@ -81,6 +87,6 @@ knapp:
     storage-order-reply-enabled: false         # IB-02: optional PostStorageOrderReply per load unit
     # Book inbound expectedQuantity into ASRS on PostInboundDelivery so GoodsOut works without operator loadUnit.
     # Same articleNumber/packSize keys as inventoryRequestLine / goodsOutOrderLines. Set false for strict IB-02.
-    inbound-auto-stock: true
+    inbound-auto-stock: false
   api:
     base-path: /api/v1

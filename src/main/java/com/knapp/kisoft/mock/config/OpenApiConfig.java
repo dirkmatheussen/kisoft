@@ -39,7 +39,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("KNAPP KiSoft Mock API")
-                        .version("4.0.3")
+                        .version("4.0.7")
                         .description("Mock server simulating the KNAPP KiSoft One API (OpenAPI 4.0.0 / KiSoft 2.12.2), limited to the message subset in scope for "
                                 + "VOLVO TRUCKS Tacoma per the HOST Interface Specification One API Appendix (P000-013061). "
                                 + "Only the in-scope HOST → KiSoft One calls are exposed. Bearer token required (OAuth2/Entra ID). "

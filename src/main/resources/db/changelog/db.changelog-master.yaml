@@ -312,3 +312,29 @@ databaseChangeLog:
             columnNames: client_number, request_number
             constraintName: uq_inventory_request_key
 
+  - changeSet:
+      id: 004-asrs-stock-attributes
+      author: cursor
+      changes:
+        - addColumn:
+            tableName: asrs_stock
+            columns:
+              - column:
+                  name: stock_type
+                  type: varchar(64)
+              - column:
+                  name: lot_number
+                  type: varchar(128)
+              - column:
+                  name: date_mark
+                  type: varchar(64)
+              - column:
+                  name: serial_number
+                  type: varchar(128)
+              - column:
+                  name: reservation_code
+                  type: varchar(64)
+              - column:
+                  name: stock_lock_reasons
+                  type: clob
+

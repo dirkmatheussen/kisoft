@@ -32,6 +32,7 @@ import java.util.concurrent.Executor;
  * configured callback URL ({@code knapp.mock.reply-callback-url}). Each message is POSTed
  * to {base}/{messageName}. Lifecycle flows use async delivery; Swagger test endpoints
  * can call {@link #deliverSync(String, Object, String)} to include the APIC response in the HTTP reply.
+ * Callback payloads are always logged at INFO (stdout) for debugging, including when callbacks are disabled.
  */
 @Service
 public class ReplyCallbackService {
@@ -41,14 +42,17 @@ public class ReplyCallbackService {
     private final KnappMockProperties properties;
     private final RestTemplate restTemplate;
     private final WebhookOAuthTokenService oauthTokenService;
+    private final JsonPayloadMapper json;
     private final Executor executor;
 
     public ReplyCallbackService(KnappMockProperties properties, RestTemplate restTemplate,
                                 WebhookOAuthTokenService oauthTokenService,
+                                JsonPayloadMapper json,
                                 @Qualifier("replyCallbackExecutor") Executor executor) {
         this.properties = properties;
         this.restTemplate = restTemplate;
         this.oauthTokenService = oauthTokenService;
+        this.json = json;
         this.executor = executor;
     }
 
@@ -67,21 +71,33 @@ public class ReplyCallbackService {
         return headers;
     }
 
+    private String payloadJson(Object payload) {
+        try {
+            return json.toJson(payload);
+        } catch (Exception e) {
+            return String.valueOf(payload);
+        }
+    }
+
     /**
      * POST synchronously and return the APIC response (for Swagger / manual testing).
      * Empty when callbacks are disabled or no target URL is configured.
      */
     public Optional<CallbackDeliveryResult> deliverSync(String path, Object payload, String messageName) {
+        String body = payloadJson(payload);
         if (!properties.areCallbacksEnabled()) {
+            log.info("Callback {} skipped (disabled) — payload={}", messageName, body);
             return Optional.empty();
         }
         String url = properties.webhookTargetUrl(path);
         if (url == null) {
+            log.info("Callback {} skipped (no URL) — payload={}", messageName, body);
             return Optional.empty();
         }
+        log.info("Callback {} → {} — payload={}", messageName, url, body);
         CallbackDeliveryResult result = deliverWithResult(url, payload, messageName);
         if (result.delivered()) {
-            log.info("Sent {} to {}", messageName, url);
+            log.info("Sent {} to {} — HTTP {}", messageName, url, result.callbackHttpStatus());
         } else {
             log.warn("Failed to send {} to {}: {}", messageName, url, result.errorMessage());
         }
@@ -90,18 +106,21 @@ public class ReplyCallbackService {
 
     /** POST {reply-callback-url}/{path} with the given payload, asynchronously. No-op if callbacks disabled. */
     private void post(String path, Object payload, String messageName) {
+        String body = payloadJson(payload);
         if (!properties.areCallbacksEnabled()) {
-            log.trace("Skipping {} — callbacks disabled", messageName);
+            log.info("Callback {} skipped (disabled) — payload={}", messageName, body);
             return;
         }
         String url = properties.webhookTargetUrl(path);
         if (url == null) {
+            log.info("Callback {} skipped (no URL) — payload={}", messageName, body);
             return;
         }
+        log.info("Callback {} → {} — payload={}", messageName, url, body);
         executor.execute(() -> {
             CallbackDeliveryResult result = deliverWithResult(url, payload, messageName);
             if (result.delivered()) {
-                log.info("Sent {} to {}", messageName, url);
+                log.info("Sent {} to {} — HTTP {}", messageName, url, result.callbackHttpStatus());
             } else {
                 log.warn("Failed to send {} to {}: {}", messageName, url, result.errorMessage());
             }

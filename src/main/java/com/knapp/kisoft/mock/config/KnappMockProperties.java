@@ -14,12 +14,6 @@ public class KnappMockProperties {
     private boolean bypassAuth = false;
 
     /**
-     * Maximum number of pack-unit master-data records. Default 1000.
-     * Override via --knapp.mock.max-records=500 when starting the JAR.
-     */
-    private int maxRecords = 1000;
-
-    /**
      * Base URL for outgoing KiSoft One → HOST reply webhooks. Combined with
      * {@link #replyCallbackPathPrefix} and the message name, e.g.
      * {base}/oneapi/v1/_webhooks/inboundDeliveryReply on IBM APIC.
@@ -62,6 +56,19 @@ public class KnappMockProperties {
      */
     private boolean inboundAutoStock = true;
 
+    /**
+     * Optional path to an InventoryReport JSON file loaded once at startup (mock load-test seed).
+     * When set, imports {@code stockInventory}; see {@link #importUniquifyArticles} /
+     * {@link #importReplaceAll}.
+     */
+    private String importInventoryReport;
+
+    /** When true (default), rewrite articleNumber to {@code {original} - {n}} during startup import. */
+    private boolean importUniquifyArticles = true;
+
+    /** When true, wipe ASRS stock before startup import. */
+    private boolean importReplaceAll = false;
+
     /** Microsoft Entra ID tenant for webhook OAuth (client credentials). */
     private String webhookOauthTenantId;
 
@@ -95,14 +102,6 @@ public class KnappMockProperties {
 
     public void setBypassAuth(boolean bypassAuth) {
         this.bypassAuth = bypassAuth;
-    }
-
-    public int getMaxRecords() {
-        return maxRecords;
-    }
-
-    public void setMaxRecords(int maxRecords) {
-        this.maxRecords = maxRecords;
     }
 
     public String getReplyCallbackUrl() {
@@ -179,6 +178,30 @@ public class KnappMockProperties {
 
     public void setInboundAutoStock(boolean inboundAutoStock) {
         this.inboundAutoStock = inboundAutoStock;
+    }
+
+    public String getImportInventoryReport() {
+        return importInventoryReport;
+    }
+
+    public void setImportInventoryReport(String importInventoryReport) {
+        this.importInventoryReport = importInventoryReport;
+    }
+
+    public boolean isImportUniquifyArticles() {
+        return importUniquifyArticles;
+    }
+
+    public void setImportUniquifyArticles(boolean importUniquifyArticles) {
+        this.importUniquifyArticles = importUniquifyArticles;
+    }
+
+    public boolean isImportReplaceAll() {
+        return importReplaceAll;
+    }
+
+    public void setImportReplaceAll(boolean importReplaceAll) {
+        this.importReplaceAll = importReplaceAll;
     }
 
     public String getWebhookOauthTenantId() {

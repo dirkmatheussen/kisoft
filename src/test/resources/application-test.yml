@@ -1,11 +1,12 @@
-# Test profile: no auth, low limits for fast tests
+# Test profile: no auth for fast tests
 knapp:
   mock:
     bypass-auth: true
     ui-auth-enabled: false
-    max-records: 100
     # Blank base URL => ReplyCallbackService no-ops, so tests never call an external host.
     reply-callback-url: ""
+    # Cover PostInboundDelivery → ASRS book + PostStockReceived (independent of main application.yml).
+    inbound-auto-stock: true
 
 spring:
   datasource:

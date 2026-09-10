@@ -44,7 +44,8 @@ class ReplyCallbackServiceTest {
         properties.setReplyCallbackUrl("https://api.example/kisoft");
 
         Executor directExecutor = Runnable::run;
-        service = new ReplyCallbackService(properties, restTemplate, oauthTokenService, directExecutor);
+        JsonPayloadMapper json = new JsonPayloadMapper(new com.fasterxml.jackson.databind.ObjectMapper());
+        service = new ReplyCallbackService(properties, restTemplate, oauthTokenService, json, directExecutor);
     }
 
     @Test

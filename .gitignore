@@ -25,3 +25,9 @@ data/
 *.mv.db
 *.trace.db
 *.lock.db
+
+# Local secrets (never commit)
+.env
+*.env
+!deploy/knapp-kisoft-mock.env.example
+.superpowers/
