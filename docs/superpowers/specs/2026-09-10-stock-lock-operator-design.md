@@ -75,7 +75,8 @@ entity snapshot plus `added`/`removed`, or a typed not-found result. Controller 
 | invalid reason value, or LOCK with no reasons | 400 | `E-AKO-GENR-0002` |
 | missing required fields | 400 | Bean validation (existing handler) |
 
-Body uses the existing `OneApiOkResponse` shape for consistency with other operator endpoints.
+Error bodies use the existing `OneApiErrorResponse` (`clientNumber`, `articleNumber`, `packSize`,
+`message`, `codes[]`) like the other operator endpoints; success bodies use `OneApiOkResponse`.
 
 ## Docs
 
