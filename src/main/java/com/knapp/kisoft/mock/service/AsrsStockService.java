@@ -167,6 +167,13 @@ public class AsrsStockService {
                 .orElse(0);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<AsrsStockEntity> find(String clientNumber, String articleNumber, String packSize,
+                                         String reservationCode) {
+        return repo.findByClientNumberAndArticleNumberAndPackSizeAndReservationCode(
+                clientNumber, articleNumber, packSize, ReservationCodes.normalize(reservationCode));
+    }
+
     /** Snapshot of all tracked ASRS stock (used to build an Inventory Report). */
     @Transactional(readOnly = true)
     public List<AsrsStockEntity> listAll() {

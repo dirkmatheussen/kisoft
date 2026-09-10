@@ -15,6 +15,7 @@ import com.knapp.kisoft.mock.api.dto.StockCorrected;
 import com.knapp.kisoft.mock.api.dto.StockEntry;
 import com.knapp.kisoft.mock.api.dto.StockLockChanged;
 import com.knapp.kisoft.mock.api.dto.StockLockRequestReference;
+import com.knapp.kisoft.mock.persistence.AsrsStockEntity;
 import com.knapp.kisoft.mock.persistence.GoodsOutOrderEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -251,11 +252,7 @@ public class GoodsOutOrderLifecycleService {
             callback.sendStockLockChanged(damageLock(order, line, sourceLoadUnitCode, slot, picked));
         }
 
-        List<PickedStock> pickedStock = List.of(new PickedStock(
-                picked, line.articleNumber(), line.packSize(), line.stockType(),
-                line.lotNumber(), line.dateMark(), line.reservationCode(), null,
-                damaged ? List.of("LOCKED_FOR_VISION_CHECK") : null));
-        return replyLine(order, line, uuid, picked, result, null, pickedStock);
+        return replyLine(order, line, uuid, picked, result, null, pickedStockFor(order, line, picked, damaged));
     }
 
     // ---- Reply / message builders --------------------------------------------------------------
@@ -285,7 +282,8 @@ public class GoodsOutOrderLifecycleService {
         List<GoodsOutOrderReplyLine> lines = new ArrayList<>();
         for (GoodsOutOrderLine line : order.goodsOutOrderLines()) {
             int qty = line.requestedQuantity() != null ? line.requestedQuantity() : 0;
-            lines.add(replyLine(order, line, UUID.randomUUID().toString(), qty, "PROCESSED", null, null));
+            lines.add(replyLine(order, line, UUID.randomUUID().toString(), qty, "PROCESSED", null,
+                    pickedStockFor(order, line, qty, false)));
         }
         return lines.isEmpty() ? null : lines;
     }
@@ -322,6 +320,35 @@ public class GoodsOutOrderLifecycleService {
     private static GoodsOutPickLine findPick(GoodsOutPickConfirmation c, String lineReference) {
         if (c.lines() == null) return null;
         return c.lines().stream().filter(l -> lineReference.equals(l.lineReference())).findFirst().orElse(null);
+    }
+
+    /**
+     * {@code pickedStock} echoes the PostGoodsOutOrder line identity (article/packSize/reservationCode)
+     * and fills remaining inventory attributes from the matching ASRS row when the order line left them blank.
+     */
+    private List<PickedStock> pickedStockFor(GoodsOutOrder order, GoodsOutOrderLine line, int qty, boolean damaged) {
+        AsrsStockEntity row = null;
+        if (isPresent(line.packSize())) {
+            row = asrsStock.find(order.clientNumber(), line.articleNumber(),
+                    toKey(line.packSize()), line.reservationCode()).orElse(null);
+        }
+        List<String> locks = damaged
+                ? List.of("LOCKED_FOR_VISION_CHECK")
+                : (row != null ? AsrsStockService.readLockReasons(row) : null);
+        return List.of(new PickedStock(
+                qty,
+                line.articleNumber(),
+                line.packSize(),
+                firstNonBlank(line.stockType(), row != null ? row.getStockType() : null),
+                firstNonBlank(line.lotNumber(), row != null ? row.getLotNumber() : null),
+                firstNonBlank(line.dateMark(), row != null ? row.getDateMark() : null),
+                line.reservationCode(),
+                row != null ? row.getSerialNumber() : null,
+                locks));
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        return preferred != null && !preferred.isBlank() ? preferred : fallback;
     }
 
     private static GoodsOutOrderReplyLine replyLine(GoodsOutOrder order, GoodsOutOrderLine line, String uuid,

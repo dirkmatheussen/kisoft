@@ -167,7 +167,7 @@ curl -s -u knapp:$MOCK_UI_PASSWORD -H "Authorization: Bearer x" -H "Content-Type
 Or at JVM start:
 
 ```bash
-java -jar target/knapp-kisoft-mock-4.0.7.jar \
+java -jar target/knapp-kisoft-mock-4.0.8.jar \
   --knapp.mock.import-inventory-report=/Users/Dirk/Downloads/POSTINVENTORYREPORT_100000_PL_swagger.json \
   --knapp.mock.import-uniquify-articles=true \
   --knapp.mock.import-replace-all=true
@@ -478,7 +478,7 @@ Goods-out line `processingResult` (on reply webhooks during picking): `UNTOUCHED
 Override at startup, e.g.:
 
 ```bash
-java -jar knapp-kisoft-mock-4.0.7.jar \
+java -jar knapp-kisoft-mock-4.0.8.jar \
   --knapp.mock.ui-password=<strong-password>
 ```
 

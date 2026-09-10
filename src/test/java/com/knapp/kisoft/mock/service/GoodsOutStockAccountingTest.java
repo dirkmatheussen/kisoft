@@ -60,6 +60,41 @@ class GoodsOutStockAccountingTest {
     }
 
     @Test
+    void confirmPicking_pickedStockEchoesOrderLineAndInventoryAttributes() {
+        GoodsOutOrder order = order(5);
+        GoodsOutOrderEntity entity = entity("STARTED");
+        when(store.find("OB", "GO-1", 1)).thenReturn(Optional.of(entity));
+        when(store.readPayload(entity)).thenReturn(order);
+        when(asrsStock.getQuantity("OB", "ART-1", "1", "BE")).thenReturn(5);
+        when(packUnitStore.findAnyByArticle("OB", "ART-1")).thenReturn(Optional.empty());
+        var stock = new com.knapp.kisoft.mock.persistence.AsrsStockEntity("OB", "ART-1", "1", "BE", 5);
+        stock.setStockType("NORMAL");
+        stock.setLotNumber("LOT-9");
+        stock.setDateMark("2026-01-15");
+        stock.setSerialNumber("SN-1");
+        stock.setStockLockReasonsJson("[\"QS_REQ\"]");
+        when(asrsStock.find("OB", "ART-1", "1", "BE")).thenReturn(Optional.of(stock));
+
+        lifecycle.confirmPicking(new GoodsOutPickConfirmation(
+                "OB", "GO-1", 1,
+                List.of(new GoodsOutPickLine("GL1", 5, null, null, null))));
+
+        ArgumentCaptor<GoodsOutOrderReply> captor = ArgumentCaptor.forClass(GoodsOutOrderReply.class);
+        verify(callback).sendGoodsOutOrderReply(captor.capture());
+        var picked = captor.getValue().goodsOutOrderLines().get(0).pickedStock();
+        assertThat(picked).hasSize(1);
+        assertThat(picked.get(0).articleNumber()).isEqualTo("ART-1");
+        assertThat(picked.get(0).packSize()).isEqualTo(1);
+        assertThat(picked.get(0).reservationCode()).isEqualTo("BE");
+        assertThat(picked.get(0).processedQuantity()).isEqualTo(5);
+        assertThat(picked.get(0).stockType()).isEqualTo("NORMAL");
+        assertThat(picked.get(0).lotNumber()).isEqualTo("LOT-9");
+        assertThat(picked.get(0).dateMark()).isEqualTo("2026-01-15");
+        assertThat(picked.get(0).serialNumber()).isEqualTo("SN-1");
+        assertThat(picked.get(0).stockLockReasons()).containsExactly("QS_REQ");
+    }
+
+    @Test
     void finalCheck_afterStockFullyDeducted_replyLinesAreProcessedNotOutOfStock() {
         GoodsOutOrder order = order(5);
         GoodsOutOrderEntity entity = entity("PROCESSED");

@@ -10,7 +10,7 @@ mvn -q clean package -DskipTests
 
 sudo useradd --system --home /opt/knapp-kisoft-mock --shell /usr/sbin/nologin knapp-mock 2>/dev/null || true
 sudo mkdir -p /opt/knapp-kisoft-mock/data /etc/knapp-kisoft-mock
-sudo cp target/knapp-kisoft-mock-4.0.7.jar /opt/knapp-kisoft-mock/knapp-kisoft-mock.jar
+sudo cp target/knapp-kisoft-mock-4.0.8.jar /opt/knapp-kisoft-mock/knapp-kisoft-mock.jar
 sudo chown -R knapp-mock:knapp-mock /opt/knapp-kisoft-mock
 
 sudo cp deploy/knapp-kisoft-mock.env.example /etc/knapp-kisoft-mock/env
@@ -41,7 +41,7 @@ Persistent H2 data lives under `/opt/knapp-kisoft-mock/data/` (`kisoftmock.mv.db
 
 ```bash
 sudo systemctl stop knapp-kisoft-mock
-sudo cp target/knapp-kisoft-mock-4.0.7.jar /opt/knapp-kisoft-mock/knapp-kisoft-mock.jar
+sudo cp target/knapp-kisoft-mock-4.0.8.jar /opt/knapp-kisoft-mock/knapp-kisoft-mock.jar
 sudo chown knapp-mock:knapp-mock /opt/knapp-kisoft-mock/knapp-kisoft-mock.jar
 sudo systemctl start knapp-kisoft-mock
 ```
