@@ -1,5 +1,6 @@
 package com.knapp.kisoft.mock.persistence;
 
+import com.knapp.kisoft.mock.service.ReservationCodes;
 import jakarta.persistence.*;
 
 /**
@@ -9,7 +10,7 @@ import jakarta.persistence.*;
 @Entity
 @Table(
         name = "asrs_stock",
-        uniqueConstraints = @UniqueConstraint(name = "uq_asrs_stock_key", columnNames = {"client_number", "article_number", "pack_size"})
+        uniqueConstraints = @UniqueConstraint(name = "uq_asrs_stock_key", columnNames = {"client_number", "article_number", "pack_size", "reservation_code"})
 )
 public class AsrsStockEntity {
 
@@ -41,8 +42,8 @@ public class AsrsStockEntity {
     @Column(name = "serial_number", length = 128)
     private String serialNumber;
 
-    @Column(name = "reservation_code", length = 64)
-    private String reservationCode;
+    @Column(name = "reservation_code", nullable = false, length = 64)
+    private String reservationCode = "";
 
     /** JSON array of lock reason strings, e.g. {@code ["LOCKED_FOR_VISION_CHECK"]}. */
     @Lob
@@ -51,10 +52,12 @@ public class AsrsStockEntity {
 
     protected AsrsStockEntity() {}
 
-    public AsrsStockEntity(String clientNumber, String articleNumber, String packSize, int quantity) {
+    public AsrsStockEntity(String clientNumber, String articleNumber, String packSize,
+                           String reservationCode, int quantity) {
         this.clientNumber = clientNumber;
         this.articleNumber = articleNumber;
         this.packSize = packSize;
+        this.reservationCode = ReservationCodes.normalize(reservationCode);
         this.quantity = quantity;
     }
 

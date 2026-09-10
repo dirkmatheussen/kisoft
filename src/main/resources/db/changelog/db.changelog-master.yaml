@@ -338,3 +338,26 @@ databaseChangeLog:
                   name: stock_lock_reasons
                   type: clob
 
+  - changeSet:
+      id: 005-asrs-stock-reservation-key
+      author: cursor
+      changes:
+        - sql:
+            sql: UPDATE asrs_stock SET reservation_code = '' WHERE reservation_code IS NULL
+        - addNotNullConstraint:
+            tableName: asrs_stock
+            columnName: reservation_code
+            columnDataType: varchar(64)
+            defaultNullValue: ''
+        - addDefaultValue:
+            tableName: asrs_stock
+            columnName: reservation_code
+            defaultValue: ''
+        - dropUniqueConstraint:
+            tableName: asrs_stock
+            constraintName: uq_asrs_stock_key
+        - addUniqueConstraint:
+            tableName: asrs_stock
+            columnNames: client_number, article_number, pack_size, reservation_code
+            constraintName: uq_asrs_stock_key
+

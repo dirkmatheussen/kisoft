@@ -47,7 +47,7 @@ public class AsrsStockService {
         if (delta <= 0) return;
         AsrsStockEntity entity = repo
                 .findByClientNumberAndArticleNumberAndPackSize(clientNumber, articleNumber, packSize)
-                .orElseGet(() -> new AsrsStockEntity(clientNumber, articleNumber, packSize, 0));
+                .orElseGet(() -> new AsrsStockEntity(clientNumber, articleNumber, packSize, "", 0));
         entity.setQuantity(entity.getQuantity() + delta);
         if (attributes != null) {
             applyAttributes(entity, attributes);
@@ -78,7 +78,7 @@ public class AsrsStockService {
         if (counted < 0) counted = 0;
         AsrsStockEntity entity = repo
                 .findByClientNumberAndArticleNumberAndPackSize(clientNumber, articleNumber, packSize)
-                .orElseGet(() -> new AsrsStockEntity(clientNumber, articleNumber, packSize, 0));
+                .orElseGet(() -> new AsrsStockEntity(clientNumber, articleNumber, packSize, "", 0));
         int delta = counted - entity.getQuantity();
         entity.setQuantity(counted);
         repo.save(entity);

@@ -29,7 +29,7 @@ class AsrsStockLockTest {
     @BeforeEach
     void setUp() {
         service = new AsrsStockService(repo);
-        row = new AsrsStockEntity("VPNA-TAC", "VO 25133699", "1", 6);
+        row = new AsrsStockEntity("VPNA-TAC", "VO 25133699", "1", "", 6);
         row.setReservationCode("PL");
     }
 
