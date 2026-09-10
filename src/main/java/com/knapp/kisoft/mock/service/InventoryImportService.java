@@ -132,7 +132,6 @@ public class InventoryImportService {
                 entity.setLotNumber(item.lotNumber());
                 entity.setDateMark(item.dateMark());
                 entity.setSerialNumber(item.serialNumber());
-                entity.setReservationCode(item.reservationCode());
                 if (item.stockLockReasons() != null && !item.stockLockReasons().isEmpty()) {
                     try {
                         entity.setStockLockReasonsJson(objectMapper.writeValueAsString(item.stockLockReasons()));

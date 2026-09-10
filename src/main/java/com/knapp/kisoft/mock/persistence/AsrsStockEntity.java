@@ -78,6 +78,8 @@ public class AsrsStockEntity {
     public void setLotNumber(String lotNumber) { this.lotNumber = lotNumber; }
     public void setDateMark(String dateMark) { this.dateMark = dateMark; }
     public void setSerialNumber(String serialNumber) { this.serialNumber = serialNumber; }
-    public void setReservationCode(String reservationCode) { this.reservationCode = reservationCode; }
+    public void setReservationCode(String reservationCode) {
+        this.reservationCode = ReservationCodes.normalize(reservationCode);
+    }
     public void setStockLockReasonsJson(String stockLockReasonsJson) { this.stockLockReasonsJson = stockLockReasonsJson; }
 }

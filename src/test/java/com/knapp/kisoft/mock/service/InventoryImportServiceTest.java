@@ -45,6 +45,20 @@ class InventoryImportServiceTest {
     }
 
     @Test
+    void importItems_normalizesBlankReservationCodeToEmptyKey() {
+        StockInventory blankCoo = new StockInventory(
+                new PackUnitKeyRef("VPNA-TAC", "ART-BLANK", 1),
+                2, null, null, null, null, "  ", null);
+        var result = importService.importItems(List.of(blankCoo), false, true);
+
+        assertThat(result.rowsWritten()).isEqualTo(1);
+        assertThat(repo.findByClientNumberAndArticleNumberAndPackSize("VPNA-TAC", "ART-BLANK", "1"))
+                .get()
+                .extracting(AsrsStockEntity::getReservationCode)
+                .isEqualTo("");
+    }
+
+    @Test
     void importFromFile_streamsStockInventory(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("report.json");
         Files.writeString(file, """
