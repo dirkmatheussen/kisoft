@@ -151,7 +151,30 @@ These GET endpoints return stored state in **OData v4 JSON** format:
 | `GetPackUnits` | `/oneapi/v1/packUnit` | `PackUnitFull` |
 | `GetInboundDeliveries` | `/oneapi/v1/inboundDelivery` | `{ processingStatus, inboundDelivery }` |
 | `GetGoodsOutOrders` | `/oneapi/v1/goodsOutOrder` | `{ processingStatus, goodsOutOrder }` |
-| `GetInventoryItems` | `/oneapi/v1/inventoryItem` | `{ clientNumber, articleNumber, packSize, quantity }` (ASRS stock; same keys as `inventoryRequestLine`) |
+| `GetInventoryItems` | `/oneapi/v1/inventoryItem` | StockInventory shape: `{ packUnit: { clientNumber, articleNumber, packSize }, quantity, stockType, lotNumber, dateMark, serialNumber, reservationCode, stockLockReasons }` |
+
+### Bulk inventory import (mock, load-test)
+
+Seed ASRS from a PostInventoryReport JSON (`stockInventory` array):
+
+```bash
+# Preferred for large files (~100k rows): stream from disk
+curl -s -u knapp:$MOCK_UI_PASSWORD -H "Authorization: Bearer x" -H "Content-Type: application/json" \
+  -d '{"path":"/Users/Dirk/Downloads/POSTINVENTORYREPORT_100000_PL_swagger.json"}' \
+  "http://localhost:8084/kisoft/oneapi/v1/inventoryItem/operator/importFile?uniquifyArticles=true&replaceAll=true"
+```
+
+Or at JVM start:
+
+```bash
+java -jar target/knapp-kisoft-mock-4.0.6.jar \
+  --knapp.mock.import-inventory-report=/Users/Dirk/Downloads/POSTINVENTORYREPORT_100000_PL_swagger.json \
+  --knapp.mock.import-uniquify-articles=true \
+  --knapp.mock.import-replace-all=true
+```
+
+With `uniquifyArticles=true`, identical swagger rows become distinct articles: `VO 25133699 - 1` … `VO 25133699 - 100000`.
+
 
 Supported query options (OData-style):
 
@@ -187,6 +210,7 @@ Real KiSoft One advances an order's `processingStatus` as automation and operato
 | POST | `/oneapi/v1/loadUnit/retrieve` | §5.3.3 | Targeted retrieval of a load unit → `PostLoadUnitMoved` (+ `PostStockCorrected` when `toConventional=true`). |
 | POST | `/oneapi/v1/loadUnit/repack` | §5.3.4 | Repacking / defragmentation → `PostStockCorrected`. |
 | POST | `/oneapi/v1/stock/operator/correct` | §5.3 (IN-02) | Spontaneous stock correction (absolute counted qty) → `PostStockCorrected` without prior inventory request. |
+| POST | `/oneapi/v1/stock/operator/lock` | §8.1.3 (IN-05) | Operator stock lock / unlock. `action: LOCK` adds `stockLockReasons`, `UNLOCK` removes them (empty list = all). Row matched on client + article + packSize + `reservationCode` (Country of Origin). Emits `PostStockLockChanged`; 404 `E-AKO-STOC-0003` when no match, 400 `E-AKO-GENR-0002` on unknown reason. |
 
 Lifecycle errors use `E-AKO-MOVM-0003` (order not found) and `E-AKO-MOVM-0004` (wrong status for the requested transition).
 
@@ -310,6 +334,14 @@ curl -X POST "$BASE/stock/operator/correct?wait=true" \
   }'
 ```
 
+```bash
+# Operator stock lock (IN-05) — adds QS_REQ to the PL stock of the article and emits PostStockLockChanged
+curl -X POST "$BASE/stock/operator/lock?wait=true" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"LOCK","clientNumber":"VPNA-TAC","articleNumber":"VO 25133699","packSize":1,
+       "reservationCode":"PL","stockLockReasons":["QS_REQ"],"stationName":"MOCK-STATION"}'
+```
+
 Without `wait=true`, watch the **server log** for:
 
 ```
@@ -340,6 +372,7 @@ The mock forwards the body to `{reply-callback-url}/oneapi/v1/_webhooks/{message
 |------|----------|--------|-------------------------|
 | Test one webhook payload | `POST /_webhooks/{messageName}` | `true` | `callback` field in HTTP response |
 | Spontaneous stock correction | `POST /stock/operator/correct` | `true` | `callback` field in HTTP response |
+| Operator stock lock / unlock | `POST /stock/operator/lock` | `true` | `callback` field in HTTP response |
 | Full goods-in / goods-out flow | Operator + HOST endpoints | `false` (default) | Server log (`Sent …` / `Failed …`) |
 | Fire-and-forget relay | `POST /_webhooks/{messageName}` | `false` | HTTP `202`; server log |
 
@@ -424,7 +457,6 @@ Goods-out line `processingResult` (on reply webhooks during picking): `UNTOUCHED
 | `knapp.mock.ui-auth-enabled` | `true` | HTTP Basic Auth on homepage and Swagger UI; `false` in `dev`/`test` |
 | `knapp.mock.ui-username` | `knapp` | UI login username |
 | `knapp.mock.ui-password` | *(env: `MOCK_UI_PASSWORD`)* | UI login password — **required** when UI auth is enabled |
-| `knapp.mock.max-records` | `1000` | Max pack-unit master-data records |
 | `knapp.mock.reply-callback-enabled` | `true` | Master switch; set `false` to disable all outgoing webhooks |
 | `knapp.mock.reply-callback-url` | `https://apitest-awe.volvo.com/vgcd/external/plwms5d.srv.volvo.com/wms` | IBM APIC base URL |
 | `knapp.mock.reply-callback-path-prefix` | `oneapi/v1/_webhooks` | Path between base and message name |
@@ -440,9 +472,8 @@ Goods-out line `processingResult` (on reply webhooks during picking): `UNTOUCHED
 Override at startup, e.g.:
 
 ```bash
-java -jar knapp-kisoft-mock-4.0.3.jar \
-  --knapp.mock.ui-password=<strong-password> \
-  --knapp.mock.max-records=500
+java -jar knapp-kisoft-mock-4.0.6.jar \
+  --knapp.mock.ui-password=<strong-password>
 ```
 
 ---
@@ -463,7 +494,7 @@ The behaviour of this mock is driven by the companion **`asrs-specs`** specifica
 | **IN-02** — Stock adjustments | `007-asrs-stock-adjustments` | ✅ | Spontaneous correction via `POST /stock/operator/correct`; inventory-linked and spontaneous paths emit `PostStockCorrected` with `eventId`. Also emitted from short picks, repacking and retrieval-to-conventional. |
 | **IN-03** — Stock alignment | `008-asrs-stock-alignment` | ✅ | `PostRequestInventoryReport` → async `PostInventoryReport` built from the current ASRS stock snapshot (filterable by client/article/pack size). |
 | **IN-04** — Stock properties changed | `009-asrs-stock-properties` | ✖ | `PostStockChanged` / `PostChangeLoadUnitRequest` are out of scope for this project (KIS-009), so not exposed. |
-| **IN-05** — Stock lock change | `010-asrs-stock-lock` | ◑ | Outbound `PostStockLockChanged` implemented (lock on damaged source during picking; unlock after inventory count). The inbound *request to lock* (`PostStockLockRequest`) is out of scope (KIS-010). |
+| **IN-05** — Stock lock change | `010-asrs-stock-lock` | ◑ | Outbound `PostStockLockChanged` implemented (lock on damaged source during picking; unlock after inventory count; operator `POST /stock/operator/lock` for explicit LOCK/UNLOCK with Tacoma reason codes). The inbound *request to lock* (`PostStockLockRequest`) is out of scope (KIS-010). |
 | **IN-06** — Stock move (conventional ↔ ASRS) | `011-asrs-stock-move` | ◑ | Outbound move feedback `PostLoadUnitMoved` implemented via targeted retrieval (`/loadUnit/retrieve`), plus `PostStockCorrected` when stock leaves to the conventional warehouse; re-storing uses the goods-in flow. The inbound `relocationRequest` is out of scope (`PostStockMoved` superseded by `PostLoadUnitMoved`, KIS-001/002). |
 | **IN-07** — Partial stock block | `012-partial-stock-block` | ◑ | Building blocks present (`/loadUnit/retrieve` + `PostStockLockChanged`); no dedicated partial-block workflow yet. |
 

@@ -31,7 +31,7 @@
     },
     {
       "name": "Stock Operator (mock)",
-      "description": "Mock-only spontaneous stock correction (PostStockCorrected without prior inventory request)."
+      "description": "Mock-only spontaneous stock correction (PostStockCorrected without prior inventory request) and operator stock lock/unlock (PostStockLockChanged)."
     },
     {
       "name": "Goods-In Operator (mock)",
