@@ -70,7 +70,8 @@ public class GoodsOutOperatorController {
     @Operation(operationId = "OperatorFinalCheckGoodsOutOrder",
             summary = "Final check / dispatch staging (GS §5.2.4–§5.2.5)",
             description = "Passes the shipping load unit through the final check, transitions PROCESSED → FINISHED and "
-                    + "emits PostGoodsOutOrderReply(FINISHED). No confirmation by the customer is required to close the order.")
+                    + "emits PostGoodsOutOrderReply(FINISHED) with the same line processedQuantity, processingResult "
+                    + "and pickedStock as the pick (PROCESSED) reply. No confirmation by the customer is required to close the order.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Final check passed"),
             @ApiResponse(responseCode = "400", description = "lineCode: E-AKO-MOVM-0003 (not found), E-AKO-MOVM-0004 (wrong status)")

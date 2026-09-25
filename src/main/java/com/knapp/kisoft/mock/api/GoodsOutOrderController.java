@@ -15,6 +15,7 @@ import com.knapp.kisoft.mock.persistence.GoodsOutOrderEntity;
 import com.knapp.kisoft.mock.service.GoodsOutOrderLifecycleService;
 import com.knapp.kisoft.mock.service.GoodsOutOrderStoreService;
 import com.knapp.kisoft.mock.service.ODataQuerySupport;
+import com.knapp.kisoft.mock.service.OffsetPageable;
 import com.knapp.kisoft.mock.service.ReplyCallbackService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +24,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,6 +40,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -52,6 +56,13 @@ import java.util.Set;
 @RestController
 @RequestMapping("/oneapi/v1")
 public class GoodsOutOrderController {
+
+    /** Supported OData {@code $filter} fields for goodsOutOrder, mapped to GoodsOutOrderEntity attributes. */
+    private static final Map<String, String> GOODS_OUT_ORDER_FIELDS = Map.of(
+            "clientNumber", "clientNumber",
+            "orderNumber", "orderNumber",
+            "sheetNumber", "sheetNumber",
+            "processingStatus", "processingStatus");
 
     private final GoodsOutOrderStoreService store;
     private final GoodsOutOrderLifecycleService lifecycle;
@@ -85,24 +96,18 @@ public class GoodsOutOrderController {
             @RequestParam(value = "$skip", required = false) String skip,
             @Parameter(description = "Include @odata.count when true")
             @RequestParam(value = "$count", required = false) String count) {
-        List<GoodsOutOrderRead> all = store.listAllEntities().stream()
-                .map(this::toRead)
-                .toList();
-        ODataCollectionResponse<GoodsOutOrderRead> response = ODataQuerySupport.buildPage(
-                ODataQuerySupport.metadataContext(contextPath, "GoodsOutOrders"),
-                all,
-                ODataQuerySupport.parseFilter(filter),
-                read -> {
-                    GoodsOutOrder o = read.goodsOutOrder();
-                    return ODataQuerySupport.fields(
-                            "clientNumber", ODataQuerySupport.str(o.clientNumber()),
-                            "orderNumber", ODataQuerySupport.str(o.orderNumber()),
-                            "sheetNumber", ODataQuerySupport.str(o.sheetNumber()),
-                            "processingStatus", ODataQuerySupport.str(read.processingStatus()));
-                },
-                ODataQuerySupport.parseTop(top),
-                ODataQuerySupport.parseSkip(skip),
-                ODataQuerySupport.parseCount(count));
+        int limit = ODataQuerySupport.parseTop(top);
+        int offset = ODataQuerySupport.parseSkip(skip);
+        boolean includeCount = ODataQuerySupport.parseCount(count);
+        Specification<GoodsOutOrderEntity> spec = ODataQuerySupport.equalitySpecification(
+                ODataQuerySupport.parseFilter(filter), GOODS_OUT_ORDER_FIELDS);
+        Integer total = includeCount ? (int) store.count(spec) : null;
+        List<GoodsOutOrderRead> value = limit == 0 ? List.of()
+                : store.page(spec, new OffsetPageable(offset, limit, Sort.by("id"))).stream()
+                        .map(this::toRead)
+                        .toList();
+        ODataCollectionResponse<GoodsOutOrderRead> response = new ODataCollectionResponse<>(
+                ODataQuerySupport.metadataContext(contextPath, "GoodsOutOrders"), total, value);
         return ResponseEntity.ok(response);
     }
 

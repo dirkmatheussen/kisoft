@@ -40,7 +40,8 @@ import static com.knapp.kisoft.mock.service.PrjContainerIds.forLine;
  *   <li>{@link #startProcessing} → STARTED, {@link #confirmPicking} → PROCESSED, {@link #finalCheck} → FINISHED.</li>
  *   <li>Picking (PROCESSED) decrements ASRS stock by the picked quantity (defaults to
  *       {@code requestedQuantity}); a short pick emits PostStockCorrected (QUANTITY_ERROR) and a
- *       damaged source slot emits PostStockLockChanged. FINISHED does not re-check or re-deduct stock.</li>
+ *       damaged source slot emits PostStockLockChanged. FINISHED copies the pick-line
+ *       processedQuantity / processingResult / pickedStock and does not re-check or re-deduct stock.</li>
  * </ul>
  */
 @Service
@@ -202,6 +203,7 @@ public class GoodsOutOrderLifecycleService {
                 replyLines.add(pickLine(order, line, findPick(c, line.lineReference())));
             }
         }
+        store.savePickResult(entity, replyLines);
         store.updateStatus(c.clientNumber(), c.orderNumber(), c.sheetNumber(), STATUS_PROCESSED);
         callback.sendGoodsOutOrderReply(reply(order, "SYSTEM", STATUS_PROCESSED, replyLines.isEmpty() ? null : replyLines));
         return Result.ok("Picking confirmed, PostGoodsOutOrderReply(PROCESSED) sent");
@@ -216,7 +218,7 @@ public class GoodsOutOrderLifecycleService {
         }
         GoodsOutOrder order = store.readPayload(entity);
         store.updateStatus(clientNumber, orderNumber, sheetNumber, STATUS_FINISHED);
-        callback.sendGoodsOutOrderReply(reply(order, "SYSTEM", STATUS_FINISHED, finishedLines(order)));
+        callback.sendGoodsOutOrderReply(reply(order, "SYSTEM", STATUS_FINISHED, finishedLines(order, store.readPickResult(entity))));
         return Result.ok("Final check passed, PostGoodsOutOrderReply(FINISHED) sent");
     }
 
@@ -276,8 +278,23 @@ public class GoodsOutOrderLifecycleService {
         return lines.isEmpty() ? null : lines;
     }
 
-    private List<GoodsOutOrderReplyLine> finishedLines(GoodsOutOrder order) {
+    private List<GoodsOutOrderReplyLine> finishedLines(GoodsOutOrder order, List<GoodsOutOrderReplyLine> pickLines) {
         // Stock was already deducted at PROCESSED — do not re-validate ASRS quantity here.
+        // Copy pick line qty/result/pickedStock so short picks stay QUANTITY_ERROR on FINISHED.
+        if (pickLines != null && !pickLines.isEmpty()) {
+            List<GoodsOutOrderReplyLine> lines = new ArrayList<>();
+            for (GoodsOutOrderReplyLine pick : pickLines) {
+                lines.add(new GoodsOutOrderReplyLine(
+                        UUID.randomUUID().toString(),
+                        pick.prjContainerID(),
+                        pick.lineReference(),
+                        pick.processedQuantity(),
+                        pick.processingResult(),
+                        pick.processingError(),
+                        pick.pickedStock()));
+            }
+            return lines;
+        }
         if (order.goodsOutOrderLines() == null) return null;
         List<GoodsOutOrderReplyLine> lines = new ArrayList<>();
         for (GoodsOutOrderLine line : order.goodsOutOrderLines()) {

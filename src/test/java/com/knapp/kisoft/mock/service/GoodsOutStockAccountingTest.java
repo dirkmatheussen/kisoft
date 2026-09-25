@@ -3,8 +3,10 @@ package com.knapp.kisoft.mock.service;
 import com.knapp.kisoft.mock.api.dto.GoodsOutOrder;
 import com.knapp.kisoft.mock.api.dto.GoodsOutOrderLine;
 import com.knapp.kisoft.mock.api.dto.GoodsOutOrderReply;
+import com.knapp.kisoft.mock.api.dto.GoodsOutOrderReplyLine;
 import com.knapp.kisoft.mock.api.dto.GoodsOutPickConfirmation;
 import com.knapp.kisoft.mock.api.dto.GoodsOutPickLine;
+import com.knapp.kisoft.mock.api.dto.PickedStock;
 import com.knapp.kisoft.mock.persistence.GoodsOutOrderEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,6 +60,7 @@ class GoodsOutStockAccountingTest {
 
         verify(asrsStock).removeStock("OB", "ART-1", "1", "BE", 5);
         verify(store).updateStatus("OB", "GO-1", 1, GoodsOutOrderLifecycleService.STATUS_PROCESSED);
+        verify(store).savePickResult(eq(entity), any());
     }
 
     @Test
@@ -112,6 +116,31 @@ class GoodsOutStockAccountingTest {
         assertThat(reply.goodsOutOrderLines().get(0).processedQuantity()).isEqualTo(5);
         verify(asrsStock, never()).removeStock(anyString(), anyString(), anyString(), anyString(), anyInt());
         verify(asrsStock, never()).getQuantity(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void finalCheck_copiesShortPickQuantityAndQuantityErrorFromPick() {
+        GoodsOutOrder order = order(2);
+        GoodsOutOrderEntity entity = entity("PROCESSED");
+        when(store.find("OB", "GO-1", 1)).thenReturn(Optional.of(entity));
+        when(store.readPayload(entity)).thenReturn(order);
+        when(store.readPickResult(entity)).thenReturn(List.of(new GoodsOutOrderReplyLine(
+                "pick-uuid", "00194690524", "GL1", 1, "QUANTITY_ERROR", null,
+                List.of(new PickedStock(1, "ART-1", 1, null, null, null, "BE", null, null)))));
+
+        lifecycle.finalCheck("OB", "GO-1", 1);
+
+        ArgumentCaptor<GoodsOutOrderReply> captor = ArgumentCaptor.forClass(GoodsOutOrderReply.class);
+        verify(callback).sendGoodsOutOrderReply(captor.capture());
+        GoodsOutOrderReply reply = captor.getValue();
+        assertThat(reply.processingStatus()).isEqualTo("FINISHED");
+        var line = reply.goodsOutOrderLines().get(0);
+        assertThat(line.lineReference()).isEqualTo("GL1");
+        assertThat(line.processedQuantity()).isEqualTo(1);
+        assertThat(line.processingResult()).isEqualTo("QUANTITY_ERROR");
+        assertThat(line.pickedStock()).hasSize(1);
+        assertThat(line.pickedStock().get(0).processedQuantity()).isEqualTo(1);
+        verify(asrsStock, never()).removeStock(anyString(), anyString(), anyString(), anyString(), anyInt());
     }
 
     @Test

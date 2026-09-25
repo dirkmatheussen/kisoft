@@ -1,8 +1,12 @@
 package com.knapp.kisoft.mock.service;
 
 import com.knapp.kisoft.mock.api.dto.GoodsOutOrder;
+import com.knapp.kisoft.mock.api.dto.GoodsOutOrderReplyLine;
 import com.knapp.kisoft.mock.persistence.GoodsOutOrderEntity;
 import com.knapp.kisoft.mock.persistence.GoodsOutOrderRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +59,22 @@ public class GoodsOutOrderStoreService {
     }
 
     @Transactional
+    public void savePickResult(GoodsOutOrderEntity entity, List<GoodsOutOrderReplyLine> lines) {
+        entity.setPickResultJson(lines == null ? null : json.toJson(lines));
+        repo.save(entity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<GoodsOutOrderReplyLine> readPickResult(GoodsOutOrderEntity entity) {
+        String raw = entity.getPickResultJson();
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        List<GoodsOutOrderReplyLine> lines = json.fromJson(raw, new TypeReference<>() {});
+        return lines != null ? lines : List.of();
+    }
+
+    @Transactional
     public void updateStatus(String clientNumber, String orderNumber, Integer sheetNumber, String status) {
         repo.findByClientNumberAndOrderNumberAndSheetNumber(clientNumber, orderNumber, toKey(sheetNumber))
                 .ifPresent(e -> { e.setProcessingStatus(status); repo.save(e); });
@@ -70,6 +90,18 @@ public class GoodsOutOrderStoreService {
     @Transactional(readOnly = true)
     public List<GoodsOutOrderEntity> listAllEntities() {
         return repo.findAll();
+    }
+
+    /** Count of goods-out orders matching a specification (database COUNT; used for OData {@code $count}). */
+    @Transactional(readOnly = true)
+    public long count(Specification<GoodsOutOrderEntity> spec) {
+        return repo.count(spec);
+    }
+
+    /** A single page of goods-out orders matching a specification (database OFFSET/LIMIT; used for OData reads). */
+    @Transactional(readOnly = true)
+    public List<GoodsOutOrderEntity> page(Specification<GoodsOutOrderEntity> spec, Pageable pageable) {
+        return repo.findAll(spec, pageable).getContent();
     }
 
     @Transactional

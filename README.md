@@ -176,7 +176,7 @@ curl -s -u knapp:$MOCK_UI_PASSWORD -H "Authorization: Bearer x" -H "Content-Type
 Or at JVM start (same on-host path):
 
 ```bash
-java -jar target/knapp-kisoft-mock-4.0.8.jar \
+java -jar target/knapp-kisoft-mock-4.0.10.jar \
   --knapp.mock.import-inventory-report=/opt/knapp-kisoft-mock/data/inventory-report.json \
   --knapp.mock.import-uniquify-articles=true \
   --knapp.mock.import-replace-all=true
@@ -219,7 +219,7 @@ Real KiSoft One advances an order's `processingStatus` as automation and operato
 | POST | `/oneapi/v1/inboundDelivery/operator/finish` | §5.1.2 | Force `FINISHED` (short receipt); emits `PostInboundDeliveryReply(FINISHED)`; with auto-stock, ASRS is corrected down for unreceived qty |
 | POST | `/oneapi/v1/goodsOutOrder/operator/start` | §5.2.1 | Goods-out order → `STARTED`; emits `PostGoodsOutOrderReply(STARTED)` |
 | POST | `/oneapi/v1/goodsOutOrder/operator/pick` | §5.2.3 | Confirm picking → `PROCESSED`; decrements ASRS stock. Short pick → `PostStockCorrected` + line result `QUANTITY_ERROR`; damaged source → `PostStockLockChanged`. |
-| POST | `/oneapi/v1/goodsOutOrder/operator/finalCheck` | §5.2.4/5 | Final check / dispatch → `FINISHED`; emits `PostGoodsOutOrderReply(FINISHED)` |
+| POST | `/oneapi/v1/goodsOutOrder/operator/finalCheck` | §5.2.4/5 | Final check / dispatch → `FINISHED`; emits `PostGoodsOutOrderReply(FINISHED)` copying pick-line `processedQuantity`, `processingResult` and `pickedStock` (short pick stays `QUANTITY_ERROR`) |
 | POST | `/oneapi/v1/inventoryRequest/operator/count` | §5.3.5 | Record the counted quantity. A deviation from booked stock corrects it and emits `PostStockCorrected`; then `PostInventoryRequestReply(FINISHED)` + `PostStockLockChanged` (unlock). |
 | POST | `/oneapi/v1/loadUnit/retrieve` | §5.3.3 | Targeted retrieval of a load unit → `PostLoadUnitMoved` (+ `PostStockCorrected` when `toConventional=true`). |
 | POST | `/oneapi/v1/loadUnit/repack` | §5.3.4 | Repacking / defragmentation → `PostStockCorrected`. |
@@ -240,9 +240,10 @@ Content-Type: application/json
 Authorization: Bearer <Entra ID access token>
 X-IBM-Client-Id: <IBM APIC client id>
 X-IBM-Client-Secret: <IBM APIC client secret>
+clientNumber: <clientNumber from the JSON body>
 ```
 
-The Bearer token is obtained automatically via **Microsoft Entra ID** client credentials (`knapp.mock.webhook-oauth-*` in `application.yml`) and cached until shortly before expiry. IBM APIC credentials are applied **server-side only** — they are never embedded in Swagger UI.
+The Bearer token is obtained automatically via **Microsoft Entra ID** client credentials (`knapp.mock.webhook-oauth-*` in `application.yml`) and cached until shortly before expiry. IBM APIC credentials are applied **server-side only** — they are never embedded in Swagger UI. The `clientNumber` header is copied from the payload (`clientNumber` at the root, otherwise the first nested value such as `packUnit.clientNumber`). It is omitted when the body has no client number.
 
 Your host endpoint should accept the POST and return any `2xx` as acknowledgement. Lifecycle flows deliver callbacks **asynchronously** (they do not block the originating API call). Test-oriented endpoints support `wait=true` to return the APIC response in the HTTP reply (see [Testing webhooks](#testing-webhooks)). Callbacks are POSTed to `{reply-callback-url}/{reply-callback-path-prefix}/{messageName}` (default prefix: `oneapi/v1/_webhooks`).
 
@@ -487,7 +488,7 @@ Goods-out line `processingResult` (on reply webhooks during picking): `UNTOUCHED
 Override at startup, e.g.:
 
 ```bash
-java -jar knapp-kisoft-mock-4.0.8.jar \
+java -jar knapp-kisoft-mock-4.0.10.jar \
   --knapp.mock.ui-password=<strong-password>
 ```
 
@@ -504,7 +505,7 @@ The behaviour of this mock is driven by the companion **`asrs-specs`** specifica
 | **MA-01** — Part master data | `001-part-master-data-asrs` | ✅ | `PutPackUnit` / `DeletePackUnit` / update session; 10 000-item batch limit (`E-AKO-GENR-0002`); idempotent upserts; part delete blocked while ASRS holds stock (`E-AKO-STOC-0002`). |
 | **IB-01** — Prepare for ASRS decanting | `002-prepare-asrs-decanning` | ➖ | Receiving-side preparation (ASN, matching, sortation, TGU) — owned by the WMS; sends no commands to the ASRS, so nothing for the mock. |
 | **IB-02** — Decanting into ASRS | `003-decant-into-asrs` | ✅ | `PostInboundDelivery` → `PatchInboundDelivery` (while `NEW`) / `DeleteInboundDelivery` (while `NEW`, `CANCELLED` reply) → operator `start` → per-load-unit `PostStockReceived` (stored & pickable) → `PostInboundDeliveryReply(FINISHED)`. Optional `PostStorageOrderReply` per load unit when `storage-order-reply-enabled=true`. Guards: 409 on active patch/delete (`E-AKO-MOVM-0005`), qty > open (`-0006`), no topping-up (`-0008`), mixed SKU per compartment (`-0009`). |
-| **OB-01** — ASRS picking (pick then pack) | `005-asrs-pick-then-pack` | ✅ | `PostGoodsOutOrder` / `PatchGoodsOutOrder`; intake validation → HTTP 400 (`E-AKO-MAST-0001`, `E-AKO-STOC-0001`, `E-AKO-GENR-0001`/`0002`); accepted orders → `PostGoodsOutOrderReply(NEW)` with `UNTOUCHED`; operator `start`/`pick`/`finalCheck` → `STARTED`/`PROCESSED`/`FINISHED`; ASRS decrement, UUID per picked line, short pick → `PostStockCorrected`+`QUANTITY_ERROR`, damage → `PostStockLockChanged`. Multiphase picking (GS §5.2.2) excluded. |
+| **OB-01** — ASRS picking (pick then pack) | `005-asrs-pick-then-pack` | ✅ | `PostGoodsOutOrder` / `PatchGoodsOutOrder`; intake validation → HTTP 400 (`E-AKO-MAST-0001`, `E-AKO-STOC-0001`, `E-AKO-GENR-0001`/`0002`); accepted orders → `PostGoodsOutOrderReply(NEW)` with `UNTOUCHED`; operator `start`/`pick`/`finalCheck` → `STARTED`/`PROCESSED`/`FINISHED`; ASRS decrement, UUID per picked line, short pick → `PostStockCorrected`+`QUANTITY_ERROR` (kept on FINISHED), damage → `PostStockLockChanged`. Multiphase picking (GS §5.2.2) excluded. |
 | **IN-01** — Cycle count | `006-asrs-cycle-count` | ✅ | `PostInventoryRequest` / `DeleteInventoryRequest`; duplicate Article+CoO while prior request is `NEW` → 409 (`E-AKO-MOVM-0005`); unknown article → 400 (`E-AKO-MAST-0001`); operator `count` → one net-delta `PostStockCorrected` on deviation, `PostInventoryRequestReply(FINISHED)`, `PostStockLockChanged` (unlock). |
 | **IN-02** — Stock adjustments | `007-asrs-stock-adjustments` | ✅ | Spontaneous correction via `POST /stock/operator/correct`; inventory-linked and spontaneous paths emit `PostStockCorrected` with `eventId`. Also emitted from short picks, repacking and retrieval-to-conventional. |
 | **IN-03** — Stock alignment | `008-asrs-stock-alignment` | ✅ | `PostRequestInventoryReport` → async `PostInventoryReport` built from the current ASRS stock snapshot (filterable by client/article/pack size). |

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -71,6 +73,56 @@ class ReplyCallbackServiceTest {
         verify(oauthTokenService).invalidate();
         verify(restTemplate, org.mockito.Mockito.times(2))
                 .postForEntity(any(String.class), any(HttpEntity.class), eq(String.class));
+    }
+
+    @Test
+    void sendInboundDeliveryReply_setsClientNumberHeaderFromBody() {
+        when(oauthTokenService.isConfigured()).thenReturn(false);
+        when(restTemplate.postForEntity(any(String.class), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("ok"));
+
+        service.sendInboundDeliveryReply(new com.knapp.kisoft.mock.api.dto.InboundDeliveryReply(
+                "VPNA-TAC", "123", null, null, "STARTED", null, null));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<HttpEntity<Object>> captor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).postForEntity(any(String.class), captor.capture(), eq(String.class));
+        assertThat(captor.getValue().getHeaders().getFirst("clientNumber")).isEqualTo("VPNA-TAC");
+    }
+
+    @Test
+    void deliverSync_setsClientNumberHeaderFromNestedPackUnit() {
+        when(oauthTokenService.isConfigured()).thenReturn(false);
+        when(restTemplate.postForEntity(any(String.class), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("ok"));
+
+        service.deliverSync("inventoryReport", Map.of(
+                "requestNumber", "R1",
+                "stockInventory", List.of(Map.of(
+                        "quantity", 6,
+                        "packUnit", Map.of(
+                                "clientNumber", "VPNA-TAC",
+                                "articleNumber", "A1",
+                                "packSize", 1)))), "InventoryReport");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<HttpEntity<Object>> captor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).postForEntity(any(String.class), captor.capture(), eq(String.class));
+        assertThat(captor.getValue().getHeaders().getFirst("clientNumber")).isEqualTo("VPNA-TAC");
+    }
+
+    @Test
+    void deliverSync_omitsClientNumberHeaderWhenBodyHasNone() {
+        when(oauthTokenService.isConfigured()).thenReturn(false);
+        when(restTemplate.postForEntity(any(String.class), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("ok"));
+
+        service.deliverSync("stockCorrected", Map.of("eventId", "1"), "StockCorrected");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<HttpEntity<Object>> captor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).postForEntity(any(String.class), captor.capture(), eq(String.class));
+        assertThat(captor.getValue().getHeaders().getFirst("clientNumber")).isNull();
     }
 
     @Test

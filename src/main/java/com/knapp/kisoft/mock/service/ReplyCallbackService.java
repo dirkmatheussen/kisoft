@@ -56,7 +56,7 @@ public class ReplyCallbackService {
         this.executor = executor;
     }
 
-    private HttpHeaders webhookHeaders() {
+    private HttpHeaders webhookHeaders(Object payload) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         String clientId = properties.getWebhookIbmClientId();
@@ -66,6 +66,10 @@ public class ReplyCallbackService {
         String clientSecret = properties.getWebhookIbmClientSecret();
         if (clientSecret != null && !clientSecret.isBlank()) {
             headers.set("X-IBM-Client-Secret", clientSecret);
+        }
+        String clientNumber = json.findClientNumber(payload);
+        if (clientNumber != null) {
+            headers.set("clientNumber", clientNumber);
         }
         oauthTokenService.getAccessToken().ifPresent(token -> headers.setBearerAuth(token));
         return headers;
@@ -128,7 +132,7 @@ public class ReplyCallbackService {
     }
 
     private CallbackDeliveryResult deliverWithResult(String url, Object payload, String messageName) {
-        HttpHeaders headers = webhookHeaders();
+        HttpHeaders headers = webhookHeaders(payload);
         if (oauthTokenService.isConfigured() && !headers.containsKey(HttpHeaders.AUTHORIZATION)) {
             String msg = "OAuth is configured but no Bearer token could be obtained";
             log.error("Skipping {} to {} — {}", messageName, url, msg);
@@ -140,7 +144,7 @@ public class ReplyCallbackService {
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED && oauthTokenService.isConfigured()) {
                 log.info("{} to {} returned 401 — renewing OAuth token and retrying once", messageName, url);
                 oauthTokenService.invalidate();
-                HttpHeaders retryHeaders = webhookHeaders();
+                HttpHeaders retryHeaders = webhookHeaders(payload);
                 if (!retryHeaders.containsKey(HttpHeaders.AUTHORIZATION)) {
                     return CallbackDeliveryResult.failure(url, e);
                 }

@@ -126,6 +126,31 @@ class ODataReadIntegrationTest {
     }
 
     @Test
+    void getInventoryItems_pagesAtDatabaseWithTopSkipAndCount() throws Exception {
+        asrsStock.addStock("PG", "PG-A1", "1", 5);
+        asrsStock.addStock("PG", "PG-A2", "1", 5);
+        asrsStock.addStock("PG", "PG-A3", "1", 5);
+
+        mockMvc.perform(get(API + "/inventoryItem").contextPath(CTX)
+                        .param("$filter", "packUnit.clientNumber eq 'PG'")
+                        .param("$top", "2")
+                        .param("$skip", "0")
+                        .param("$count", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['@odata.count']").value(3))
+                .andExpect(jsonPath("$.value.length()").value(2));
+
+        mockMvc.perform(get(API + "/inventoryItem").contextPath(CTX)
+                        .param("$filter", "packUnit.clientNumber eq 'PG'")
+                        .param("$top", "2")
+                        .param("$skip", "2")
+                        .param("$count", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['@odata.count']").value(3))
+                .andExpect(jsonPath("$.value.length()").value(1));
+    }
+
+    @Test
     void getInventoryItems_includesAttributesFromInbound() throws Exception {
         Map<String, Object> article = Map.of(
                 "clientNumber", "OD", "articleNumber", "ART-META", "articleName", "Meta");

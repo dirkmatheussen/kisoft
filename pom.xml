@@ -13,7 +13,7 @@
 
     <groupId>com.knapp</groupId>
     <artifactId>knapp-kisoft-mock</artifactId>
-    <version>4.0.8</version>
+    <version>4.0.10</version>
     <name>KNAPP KiSoft Mock Server</name>
     <description>Mock server simulating KNAPP KiSoft API with OAuth2 Microsoft Entra ID authentication</description>
 

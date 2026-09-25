@@ -6,6 +6,8 @@ import com.knapp.kisoft.mock.persistence.AsrsStockEntity;
 import com.knapp.kisoft.mock.persistence.AsrsStockRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -178,6 +180,18 @@ public class AsrsStockService {
     @Transactional(readOnly = true)
     public List<AsrsStockEntity> listAll() {
         return repo.findAll();
+    }
+
+    /** Count of ASRS stock rows matching a specification (database COUNT; used for OData {@code $count}). */
+    @Transactional(readOnly = true)
+    public long count(Specification<AsrsStockEntity> spec) {
+        return repo.count(spec);
+    }
+
+    /** A single page of ASRS stock matching a specification (database OFFSET/LIMIT; used for OData reads). */
+    @Transactional(readOnly = true)
+    public List<AsrsStockEntity> page(Specification<AsrsStockEntity> spec, Pageable pageable) {
+        return repo.findAll(spec, pageable).getContent();
     }
 
     public enum LockAction { LOCK, UNLOCK }

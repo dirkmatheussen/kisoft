@@ -69,6 +69,14 @@ public class KnappMockProperties {
     /** When true, wipe ASRS stock before startup import. */
     private boolean importReplaceAll = false;
 
+    /**
+     * Allowed base directory for the {@code /inventoryItem/operator/importFile} endpoint. Caller-supplied
+     * paths are resolved against this directory and rejected if they escape it, so the endpoint cannot read
+     * arbitrary files on the mock host. Defaults to {@code data} (relative to the process working directory,
+     * e.g. {@code /opt/knapp-kisoft-mock/data} for the Ubuntu service).
+     */
+    private String importDir = "data";
+
     /** Microsoft Entra ID tenant for webhook OAuth (client credentials). */
     private String webhookOauthTenantId;
 
@@ -202,6 +210,14 @@ public class KnappMockProperties {
 
     public void setImportReplaceAll(boolean importReplaceAll) {
         this.importReplaceAll = importReplaceAll;
+    }
+
+    public String getImportDir() {
+        return importDir;
+    }
+
+    public void setImportDir(String importDir) {
+        this.importDir = importDir;
     }
 
     public String getWebhookOauthTenantId() {

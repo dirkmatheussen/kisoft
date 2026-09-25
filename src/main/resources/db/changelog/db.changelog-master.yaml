@@ -361,3 +361,14 @@ databaseChangeLog:
             columnNames: client_number, article_number, pack_size, reservation_code
             constraintName: uq_asrs_stock_key
 
+  - changeSet:
+      id: 006-goods-out-pick-result
+      author: cursor
+      changes:
+        - addColumn:
+            tableName: goods_out_order
+            columns:
+              - column:
+                  name: pick_result_json
+                  type: clob
+

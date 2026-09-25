@@ -14,6 +14,7 @@ import com.knapp.kisoft.mock.config.OpenApiConfig;
 import com.knapp.kisoft.mock.persistence.AsrsStockEntity;
 import com.knapp.kisoft.mock.service.AsrsStockService;
 import com.knapp.kisoft.mock.service.ODataQuerySupport;
+import com.knapp.kisoft.mock.service.OffsetPageable;
 import com.knapp.kisoft.mock.service.ReplyCallbackService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,6 +23,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import static com.knapp.kisoft.mock.service.PackSizeKeys.toKey;
 
@@ -43,6 +47,18 @@ import static com.knapp.kisoft.mock.service.PackSizeKeys.toKey;
 @RestController
 @RequestMapping("/oneapi/v1")
 public class StockReportController {
+
+    /** Supported OData {@code $filter} fields for inventoryItem, mapped to AsrsStockEntity attributes. */
+    private static final Map<String, String> INVENTORY_ITEM_FIELDS = Map.of(
+            "packUnit.clientNumber", "clientNumber",
+            "clientNumber", "clientNumber",
+            "packUnit.articleNumber", "articleNumber",
+            "articleNumber", "articleNumber",
+            "packUnit.packSize", "packSize",
+            "packSize", "packSize",
+            "quantity", "quantity",
+            "reservationCode", "reservationCode",
+            "stockType", "stockType");
 
     private final AsrsStockService asrsStock;
     private final ReplyCallbackService replyCallbackService;
@@ -76,26 +92,18 @@ public class StockReportController {
             @RequestParam(value = "$skip", required = false) String skip,
             @Parameter(description = "Include @odata.count when true")
             @RequestParam(value = "$count", required = false) String count) {
-        List<InventoryItem> all = asrsStock.listAll().stream()
-                .map(StockReportController::toInventoryItem)
-                .toList();
-        ODataCollectionResponse<InventoryItem> response = ODataQuerySupport.buildPage(
-                ODataQuerySupport.metadataContext(contextPath, "InventoryItems"),
-                all,
-                ODataQuerySupport.parseFilter(filter),
-                item -> ODataQuerySupport.fields(
-                        "packUnit.clientNumber", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().clientNumber() : null),
-                        "packUnit.articleNumber", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().articleNumber() : null),
-                        "packUnit.packSize", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().packSize() : null),
-                        "clientNumber", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().clientNumber() : null),
-                        "articleNumber", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().articleNumber() : null),
-                        "packSize", ODataQuerySupport.str(item.packUnit() != null ? item.packUnit().packSize() : null),
-                        "quantity", ODataQuerySupport.str(item.quantity()),
-                        "reservationCode", ODataQuerySupport.str(item.reservationCode()),
-                        "stockType", ODataQuerySupport.str(item.stockType())),
-                ODataQuerySupport.parseTop(top),
-                ODataQuerySupport.parseSkip(skip),
-                ODataQuerySupport.parseCount(count));
+        int limit = ODataQuerySupport.parseTop(top);
+        int offset = ODataQuerySupport.parseSkip(skip);
+        boolean includeCount = ODataQuerySupport.parseCount(count);
+        Specification<AsrsStockEntity> spec = ODataQuerySupport.equalitySpecification(
+                ODataQuerySupport.parseFilter(filter), INVENTORY_ITEM_FIELDS);
+        Integer total = includeCount ? (int) asrsStock.count(spec) : null;
+        List<InventoryItem> value = limit == 0 ? List.of()
+                : asrsStock.page(spec, new OffsetPageable(offset, limit, Sort.by("id"))).stream()
+                        .map(StockReportController::toInventoryItem)
+                        .toList();
+        ODataCollectionResponse<InventoryItem> response = new ODataCollectionResponse<>(
+                ODataQuerySupport.metadataContext(contextPath, "InventoryItems"), total, value);
         return ResponseEntity.ok(response);
     }
 

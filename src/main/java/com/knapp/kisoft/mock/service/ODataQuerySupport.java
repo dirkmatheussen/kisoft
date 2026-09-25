@@ -1,6 +1,8 @@
 package com.knapp.kisoft.mock.service;
 
 import com.knapp.kisoft.mock.api.dto.ODataCollectionResponse;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -101,6 +103,30 @@ public final class ODataQuerySupport {
             }
         }
         return true;
+    }
+
+    /**
+     * Builds a JPA {@link Specification} of {@code AND}-combined equality predicates from parsed OData
+     * {@code $filter} conditions, so filtering and paging happen in the database instead of in memory.
+     * {@code fieldToAttribute} maps each supported OData field name to its entity attribute; a condition on
+     * an unmapped field yields a never-matching predicate, preserving the empty-result behaviour of the
+     * previous in-memory filter. String comparison is used so mixed-type columns (e.g. integer quantity)
+     * match the string form parsed from the filter.
+     */
+    public static <T> Specification<T> equalitySpecification(
+            Map<String, String> filters, Map<String, String> fieldToAttribute) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            for (Map.Entry<String, String> condition : filters.entrySet()) {
+                String attribute = fieldToAttribute.get(condition.getKey());
+                if (attribute == null) {
+                    predicates.add(cb.disjunction());
+                    continue;
+                }
+                predicates.add(cb.equal(root.get(attribute).as(String.class), condition.getValue()));
+            }
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     public static String metadataContext(String basePath, String entitySet) {

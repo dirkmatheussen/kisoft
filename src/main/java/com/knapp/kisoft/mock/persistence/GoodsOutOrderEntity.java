@@ -29,6 +29,9 @@ public class GoodsOutOrderEntity {
     @Lob
     @Column(name = "payload_json", nullable = false)
     private String payloadJson;
+    @Lob
+    @Column(name = "pick_result_json")
+    private String pickResultJson;
 
     protected GoodsOutOrderEntity() {}
 
@@ -46,6 +49,8 @@ public class GoodsOutOrderEntity {
     public String getSheetNumber() { return sheetNumber; }
     public String getProcessingStatus() { return processingStatus; }
     public String getPayloadJson() { return payloadJson; }
+    public String getPickResultJson() { return pickResultJson; }
     public void setProcessingStatus(String processingStatus) { this.processingStatus = processingStatus; }
     public void setPayloadJson(String payloadJson) { this.payloadJson = payloadJson; }
+    public void setPickResultJson(String pickResultJson) { this.pickResultJson = pickResultJson; }
 }
