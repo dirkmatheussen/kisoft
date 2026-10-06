@@ -40,6 +40,9 @@ if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URL
     builder.WebHost.UseUrls(DeployConfiguration.ListenUrl(builder.Configuration));
 }
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 52 * 1024 * 1024);
+// Serve build-time static assets (scoped CSS bundle, compressed variants) when running
+// from source in a non-Development environment. No-op for published output.
+builder.WebHost.UseStaticWebAssets();
 
 builder.Services.Configure<MockOptions>(builder.Configuration.GetSection(MockOptions.SectionName));
 builder.Services.AddDbContext<AppDbContext>(options =>
