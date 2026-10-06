@@ -1,0 +1,83 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoDefaultLaunchSettingsFile>True</NoDefaultLaunchSettingsFile>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Tools/h2-2.2.224.jar">
+      <LogicalName>KnappKiSoftMock.h2-2.2.224.jar</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="OpenApi/java-openapi-overlay.json">
+      <LogicalName>KnappKiSoftMock.java-openapi-overlay.json</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="1.4.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <!-- The web SDK copies wwwroot after the single-file bundle is built, and marks those
+       files ExcludeFromSingleFile. Pull the publish assets into the bundle under wwwroot,
+       which is where MapStaticAssets reads them after extraction. -->
+  <Target Name="IncludeStaticContentInSingleFile"
+          BeforeTargets="_ComputeFilesToBundle"
+          DependsOnTargets="GenerateStaticWebAssetsPublishManifest;LoadStaticWebAssetsPublishManifest"
+          Condition="'$(PublishSingleFile)' == 'true'">
+    <PropertyGroup>
+      <_StaticWebAssetsPublishPathPrefix>wwwroot</_StaticWebAssetsPublishPathPrefix>
+      <_StaticWebAssetsPublishPathPrefix Condition="'$(StaticWebAssetProjectMode)' == 'Root'">wwwroot/$(StaticWebAssetBasePath)</_StaticWebAssetsPublishPathPrefix>
+    </PropertyGroup>
+
+    <ComputeStaticWebAssetsForCurrentProject
+        Assets="@(StaticWebAsset)"
+        ProjectMode="$(StaticWebAssetProjectMode)"
+        AssetKind="Publish"
+        Source="$(PackageId)">
+      <Output TaskParameter="StaticWebAssets" ItemName="_BundleStaticWebAssets" />
+    </ComputeStaticWebAssetsForCurrentProject>
+
+    <ComputeStaticWebAssetsTargetPaths
+        Assets="@(_BundleStaticWebAssets)"
+        PathPrefix="$(_StaticWebAssetsPublishPathPrefix)">
+      <Output TaskParameter="AssetsWithTargetPath" ItemName="_BundleStaticWebAssetsWithPath" />
+    </ComputeStaticWebAssetsTargetPaths>
+
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(_BundleStaticWebAssetsWithPath)" />
+      <ResolvedFileToPublish Include="@(_BundleStaticWebAssetsWithPath)">
+        <RelativePath>%(_BundleStaticWebAssetsWithPath.TargetPath)</RelativePath>
+        <ExcludeFromSingleFile>false</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="$(MSBuildProjectDirectory)/../../README.md"
+                             Condition="Exists('$(MSBuildProjectDirectory)/../../README.md')">
+        <RelativePath>README.md</RelativePath>
+        <ExcludeFromSingleFile>false</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="$(StaticWebAssetEndpointsPublishManifestPath)"
+                             Condition="Exists('$(StaticWebAssetEndpointsPublishManifestPath)')">
+        <RelativePath>$(TargetName).staticwebassets.endpoints.json</RelativePath>
+        <ExcludeFromSingleFile>false</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)">
+        <ExcludeFromSingleFile>false</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="DeleteSingleFilePublishSatellites" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">
+    <ItemGroup>
+      <_SingleFileSatellite Include="$(PublishDir)**\*"
+                            Exclude="$(PublishDir)$(AssemblyName)$(_NativeExecutableExtension)" />
+    </ItemGroup>
+    <Delete Files="@(_SingleFileSatellite)" />
+    <RemoveDir Directories="$(PublishDir)wwwroot" />
+  </Target>
+
+</Project>

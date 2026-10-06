@@ -1,0 +1,32 @@
+[Unit]
+Description=KNAPP KiSoft One Mock Server (.NET)
+Documentation=https://wispelberg.eu/kisoft/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=knapp-mock
+Group=knapp-mock
+WorkingDirectory=/opt/knapp-kisoft-mock
+
+# Same file as the Java service: MOCK_UI_PASSWORD, KNAPP_REPLY_CALLBACK_URL,
+# KNAPP_WEBHOOK_*, KNAPP_H2_FILE, KNAPP_MOCK_*, SERVER_PORT, SPRING_APPLICATION_JSON.
+EnvironmentFile=-/etc/knapp-kisoft-mock/env
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_ENVIRONMENT=Production
+Environment=DOTNET_BUNDLE_EXTRACT_BASE_DIR=/opt/knapp-kisoft-mock/.net-extract
+
+ExecStart=/opt/knapp-kisoft-mock/knapp-kisoft-mock
+Restart=on-failure
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=knapp-kisoft-mock
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

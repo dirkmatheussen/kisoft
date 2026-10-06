@@ -1,0 +1,33 @@
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="@(PathBase())" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["KnappKiSoftMock.styles.css"]" />
+    <ImportMap />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes />
+    <ReconnectModal />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>
+
+@code {
+    private string PathBase()
+    {
+        var path = Configuration["Knapp:PathBase"];
+        if (string.IsNullOrWhiteSpace(path)) path = "/kisoft";
+        path = path.Trim();
+        if (!path.StartsWith('/')) path = "/" + path;
+        return path.TrimEnd('/') + "/";
+    }
+}

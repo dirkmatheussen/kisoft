@@ -1,0 +1,59 @@
+﻿@page "/"
+@page "/home"
+@using Markdig
+@inject IWebHostEnvironment Environment
+
+<PageTitle>KNAPP KiSoft One Mock Server</PageTitle>
+
+<HeadContent>
+    <link rel="stylesheet" href="home.css" />
+</HeadContent>
+
+<div class="docs">
+    <header class="docs-header">
+        <div class="docs-brand">
+            <strong>KNAPP <em>KiSoft One</em> Mock</strong>
+            <span class="docs-badge">.NET 10</span>
+        </div>
+        <nav class="docs-actions">
+            <a class="docs-btn docs-btn-primary" href="swagger-ui/index.html" data-enhance-nav="false">Swagger UI</a>
+            <a class="docs-btn docs-btn-ghost" href="openapi" data-enhance-nav="false">OpenAPI</a>
+        </nav>
+    </header>
+
+    <main class="docs-main">
+        <article class="docs-card">
+            @((MarkupString)Html)
+        </article>
+    </main>
+
+    <footer class="docs-footer">
+        Rendered from README.md · SQLite database in <code>data/kisoftmock.db</code> ·
+        <a href="swagger-ui/index.html" data-enhance-nav="false">Swagger UI</a>
+    </footer>
+</div>
+
+@code {
+    private string Html { get; set; } = "";
+
+    protected override void OnInitialized()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Environment.ContentRootPath, "README.md"),
+            Path.GetFullPath(Path.Combine(Environment.ContentRootPath, "..", "..", "README.md")),
+            Path.Combine(Directory.GetCurrentDirectory(), "README.md")
+        };
+        var markdown = "# KNAPP KiSoft Mock Server\n\n*README.md could not be located.*";
+        foreach (var candidate in candidates)
+        {
+            if (File.Exists(candidate))
+            {
+                markdown = File.ReadAllText(candidate);
+                break;
+            }
+        }
+
+        Html = Markdown.ToHtml(markdown, new MarkdownPipelineBuilder().UseAdvancedExtensions().Build());
+    }
+}
