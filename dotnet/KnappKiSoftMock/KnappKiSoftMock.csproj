@@ -20,6 +20,11 @@
   <ItemGroup>
     <PackageReference Include="Markdig" Version="1.4.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+    <!-- 2.1.12 ships a linux-x64 libe_sqlite3.so linked against glibc 2.34; 2.1.11 needs only
+         glibc 2.28 and therefore also runs on Ubuntu 20.04 (glibc 2.31). NU1605 = deliberate
+         downgrade below what EF Core asks for; NU1903 = SQLite advisory fixed in 2.1.12. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.11" NoWarn="NU1605" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 
